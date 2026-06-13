@@ -10,7 +10,26 @@
         body, html { width: 100%; height: 100%; overflow: hidden; background-color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         #webgl-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #silver-mirror-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: transparent; transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
-        #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
+        
+        /* 🛠️ CSS 關鍵修正：移除原本的 transition，讓它變黑時瞬間全黑（0秒），只有在退場時才用 JS 控制或保持乾淨 */
+        #theater-mask { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 3; 
+            background-color: #1a1a1a; /* 稍微加深底色，確保絕對純黑遮蔽 */
+            opacity: 0; 
+            pointer-events: none; 
+        }
+        
+        /* 🛠️ 新增：當亮起時，淡出隱形可以用 1.5 秒優雅退場 */
+        #theater-mask.fade-out {
+            transition: opacity 1.5s ease;
+            opacity: 0 !important;
+        }
+
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
         
         .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
@@ -101,7 +120,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION (30秒大循環、解耦優化版)
+        // SHADER CODES SECTION
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -155,14 +174,14 @@
                 bool isFirstHalf = (globalTime < 15.0);
 
                 for(int i = 0; i < 7; i++) {
-                    float timeInterval = 1.2;
+                    float timeInterval = 1.8;
                     float timeOffset = float(i) * timeInterval;
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     
                     vec2 startCorner; 
-                    if (isFirstHalf) { startCorner = vec2(1.5, 0.7); } 
-                    else { startCorner = vec2(-1.5, 0.7); }
+                    if (isFirstHalf) { startCorner = vec2(1.8, 0.7); } 
+                    else { startCorner = vec2(-1.8, 0.7); }
                     
                     float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
                     
@@ -293,7 +312,7 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器 (已加入數學安全防護常數)
+        // 3. 🌊 海浪著色器
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0; const float BASE_SPEED_TWIST = 0.5; const float BASE_SPEED_WAVE1 = 2.0; const float BASE_SPEED_WAVE2 = 3.0; 
             void main() {
@@ -322,7 +341,6 @@
                     vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); float angle = atan(toCenter.y, toCenter.x);
                     float twistedAngle = angle + (1.5 / (r + 0.1)) * (-sign(startCorner.x)) - stageTime * mod_speed_twist;
                     
-                    // 這裡加上了 + 0.00001 防止 0 秒硬體死角
                     float waveShape = pow(abs(sin(twistedAngle * 3.0)) + 0.00001, 0.5) * sign(sin(twistedAngle * 3.0)); 
                     
                     float base_d = (r / ((1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter))))) / (0.4 + 0.4 * waveShape);
@@ -487,22 +505,23 @@
             dialogBox.classList.add('fade-fast');
             selectedType = type;
 
-            // 🛠️ 視覺魔術核心：點擊的當下先不更換劇本，防止黑白畫面暴露凍結
             setTimeout(async () => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 
-                // 1. 這裡只改文字並讓劇院面罩「立刻拉上變黑」
-                dialogText.innerText = "A moment before the gift ...";
+                // 🛠️ 1. 關鍵修正：移除 CSS 漸變類別，確保遮罩「瞬間變成絕對純黑」，徹底封印 Canvas 畫面！
+                theaterMask.classList.remove('fade-out');
                 theaterMask.style.opacity = '1';
+                
+                dialogText.innerText = "A moment before the gift ...";
                 dialogBox.classList.add('dark-mode');
                 dialogBox.classList.add('show');
                 
-                // ⏳ 給布幕 0.5 秒的時間完全變黑遮蔽畫布
-                await delay(500); 
+                // ⏳ 給布幕 0.3 秒時間建立最安全的純黑密室
+                await delay(300); 
 
                 // ================================================================
-                // 2. 【安全暗度陳倉區】此時畫面已完全全黑，我們在黑布幕後悄悄更換劇本並引發編譯
+                // 2. 【暗度陳倉】在絕對純黑的保護傘下更換劇本並引發後台編譯。
                 // ================================================================
                 if(selectedType === 'flower') { mesh.material.fragmentShader = flowerFragmentCode; } 
                 else if(selectedType === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
@@ -510,17 +529,17 @@
                 
                 shaderUniforms.u_wave_a.value = selectedWaveA;
                 shaderUniforms.u_wave_b.value = selectedWaveB;
-                mesh.material.needsUpdate = true; // 觸發 GPU 進行後台編譯
+                mesh.material.needsUpdate = true;
 
-                // 逼迫 WebGL 在全黑狀態下先在後台消化掉編譯大卡頓
+                // 逼迫 WebGL 在全黑狀態下先消化掉所有可能引起的硬體卡頓與死角畫面
                 renderer.compile(scene, camera);
                 renderer.render(scene, camera);
                 // ================================================================
 
-                // ⏳ 補足原本約定好的 3 秒轉場沉澱時間（扣除前面遮罩全黑的 0.5 秒，再等 2.5 秒）
-                await delay(2500); 
+                // ⏳ 補足剩餘的沉澱時間（總計約 3 秒）
+                await delay(2700); 
                 
-                // [精準三位一體同步點] 解除遮罩、時間解凍起跑、高清錄影同時炸開！
+                // [精準三位一體同步點] 解除銀色遮罩、時間解凍起跑、錄影開始
                 shaderUniforms.u_silver_mode.value = 1.0; 
 
                 isShaderRunning = true; 
@@ -532,11 +551,13 @@
                 await delay(2000); 
                 
                 dialogBox.classList.remove('show');
-                theaterMask.style.opacity = '0'; 
+                
+                // 🛠️ 3. 退場時，加上 fade-out 類別，讓黑色大布幕優雅地慢慢變透明
+                theaterMask.classList.add('fade-out');
             }, 300);
         }
 
-        // --- 高清錄影核心邏輯 (8Mbps) ---
+        // --- 高清錄影核心邏輯 ---
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
@@ -587,7 +608,6 @@
             }, 1000);
         }
 
-        // 🛠️ 最終雙按鈕 UI (Maybe next time 的 M 已完成大寫)
         function showDownloadButton() {
             optionsContainer.innerHTML = `
                 <div class="btn-option btn-download" onclick="handleDownloadAction()">💾 Download your vibe</div>
