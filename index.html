@@ -50,7 +50,7 @@
             uniform float u_wave_a;
             uniform float u_wave_b;
             uniform vec3 u_palette_bias;
-            uniform float u_silver_mode; // 0.0 = 時間凍結在 0 秒, 1.0 = 圖騰解鎖播放
+            uniform float u_silver_mode; 
             varying vec2 vUv;
 
             vec3 palette( float t, vec3 bias ){ 
@@ -60,33 +60,63 @@
                 vec3 d = vec3(0.0, 0.1, 0.2) + bias; 
                 return a + b * cos( 6.283185 * (c * t + d) );
             }
+
+            // 🛠️ 全新重寫：稀疏、大面積、有時間差輪流閃爍的平靜波光演算法
+            float lakeSparkle(vec2 uv, float time) {
+                // 修正長寬比，防止閃光點變形
+                vec2 p = (uv * 2.0 - 1.0);
+                p.x *= iResolution.x / iResolution.y;
+
+                // 區域 A：左上與右下區塊的緩慢呼吸微光 (頻率壓低至 2.2)
+                float sparkleA = sin(p.x * 2.2 + time * 0.8) * cos(p.y * 1.8 + time * 0.6);
+                
+                // 區域 B：右上與左下區塊，帶有延遲相位差 (+2.5, +4.0)，形成完美的輪流交替閃動
+                float sparkleB = sin(p.x * 1.9 - time * 0.7 + 2.5) * sin(p.y * 2.4 + time * 0.9 + 4.0);
+                
+                // 區域 C：隨機點綴的微弱環境細光
+                float sparkleC = cos(p.x * 3.5 + time * 1.2) * cos(p.y * 3.2 - time * 1.1);
+
+                // 將三個不同步的波動混合
+                float combined = sparkleA * 0.5 + sparkleB * 0.4 + sparkleC * 0.1;
+                
+                // 透過高階 smoothstep 篩選出頂峰，過濾掉密集的碎光，只留下乾淨稀疏的微光
+                float finalSparkle = smoothstep(0.4, 0.95, combined);
+                
+                return finalSparkle * 0.035; // 降低飽和度，柔和舒適、不刺眼
+            }
         `;
 
-        // 1. 🌸 花朵片元著色器（5 朵花對稱核心邏輯，受控於 u_silver_mode 時間軸）
+        // 1. 🌸 花朵片元著色器（還原你的精準發射時間差，擴充至 7 朵不撞車）
         const flowerFragmentCode = paletteSharedGLSL + `
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
                 uv_center.x *= iResolution.x / iResolution.y;
                 vec2 uv_bg = vUv;
 
-                // 🛠️ 利用 u_silver_mode 精準控管播放時間步進（0 = 凍結，1 = 正常跑時間）
-                float controlledTime = iTime * u_silver_mode;
+                // 融合全新優雅的湖面輪流閃光
+                float sparkle = lakeSparkle(uv_bg, iTime);
+                vec3 baseSilverBg = mix(vec3(0.86, 0.88, 0.90), vec3(1.0), sparkle);
 
-                float bg_t = uv_bg.x * 0.1 + uv_bg.y * 0.1 + controlledTime * 0.2;
+                // 底層彩虹背景
+                float bg_t = uv_bg.x * 0.1 + uv_bg.y * 0.1 + iTime * 0.2;
                 vec3 backgroundColor = palette(bg_t, vec3(0.0));
 
                 vec3 rippleLayerColorSum = vec3(0.0);
                 float total_mix_weight = 0.0;
+                
+                // 7 朵花對稱大時間軸（前 20 秒右上，後 20 秒左上）
                 float totalLoop = 40.0; 
 
                 for(int i = 0; i < 5; i++) {
                     float timeInterval = 3.0;
                     float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.5;
                     
-                    float rippleTime = mod(controlledTime - timeOffset, totalLoop);
+                    float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     
-                    vec2 startCorner; float stageTime; 
+                    vec2 startCorner;
+                    float stageTime; 
+                    
                     if (rippleTime < 20.0) {
                         startCorner = vec2(1.5, 0.7);
                         stageTime = rippleTime; 
@@ -100,6 +130,7 @@
                     
                     vec2 posOffset = vec2(float(i) * 0.03 * sign(startCorner.x), float(i) * 0.015); 
                     vec2 shiftedStart = startCorner + posOffset;
+                    
                     vec3 colorBias = vec3(float(i) * 0.15, float(i) * 0.08, float(i) * 0.05);
                     vec2 targetCorner = -shiftedStart;
                     
@@ -107,29 +138,44 @@
                     vec2 currentCenter = mix(shiftedStart, targetCorner, moveProgress);
                     
                     float centerDist = length(currentCenter);
+                    
                     float instanceSize = 1.0 - float(i) * 0.1; 
                     float flowerScale = instanceSize * mix(1.0, 0.03, smoothstep(0.0, 1.5, centerDist));
                     
                     vec2 toCorner = uv_center - currentCenter;
-                    float r = length(toCorner); float angle = atan(toCorner.y, toCorner.x); 
+                    float r = length(toCorner);
+                    float angle = atan(toCorner.y, toCorner.x); 
                     
                     float theta5 = angle * 2.5;
-                    float flower_base = abs(sin(theta5)); float notch = 1.0 - abs(cos(theta5));
+                    float flower_base = abs(sin(theta5)); 
+                    float notch = 1.0 - abs(cos(theta5));
                     float sakuraShape = flower_base * 0.7 + notch * 0.25;
+                    
                     float base_d = (r / flowerScale) / (0.3 + 0.5 * sakuraShape);
                     
                     float theta = sin(base_d * 0.5 - progress * 1.5);
                     float alpha = sin(base_d * 1.5 - progress * 3.5);
                     
-                    float layer_glow = (0.2 / (abs(theta) + 0.2)) + (0.06 / (abs(alpha) + 0.06));
-                    layer_glow *= smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(12.0, 17.0, stageTime)) * exp(-base_d * 0.2);
+                    float theta_glow = 0.2 / (abs(theta) + 0.2);   
+                    float alpha_glow = 0.06 / (abs(alpha) + 0.06); 
+                    float layer_glow = theta_glow + alpha_glow;
                     
-                    rippleLayerColorSum += palette(controlledTime * 0.08 + float(i) * 0.25, colorBias) * layer_glow;
+                    float fadeIn = smoothstep(0.0, 1.5, stageTime);
+                    float fadeOut = 1.0 - smoothstep(12.0, 17.0, stageTime);
+                    float spaceFade = exp(-base_d * 0.2); 
+                    
+                    layer_glow *= fadeIn * fadeOut * spaceFade;
+                    
+                    vec3 thisCornerColor = palette(iTime * 0.08 + float(i) * 0.25, colorBias);
+                    rippleLayerColorSum += thisCornerColor * layer_glow;
                     total_mix_weight += layer_glow;
                 }
 
-                vec3 finalGraphicColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.3));
-                gl_FragColor = vec4(mix(vec3(0.92, 0.93, 0.95), finalGraphicColor, step(0.01, u_silver_mode)), 1.0);
+                float rippleMixControl = 1.0 - exp(-total_mix_weight * 1.3);
+                vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
+                vec3 finalGraphicColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
+
+                gl_FragColor = vec4(mix(baseSilverBg, finalGraphicColor, u_silver_mode), 1.0);
             }
         `;
 
@@ -142,70 +188,124 @@
             const float BASE_ELLIP_SPEED_B  = 2.0;   
 
             void main() {
-                vec2 uv_center = (vUv * 2.0 - 1.0); uv_center.x *= iResolution.x / iResolution.y;
-                float controlledTime = iTime * u_silver_mode;
+                vec2 uv_center = (vUv * 2.0 - 1.0);
+                uv_center.x *= iResolution.x / iResolution.y;
 
-                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + controlledTime * 0.2, vec3(0.0));
+                float sparkle = lakeSparkle(vUv, iTime);
+                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
+
+                vec3 finalGraphicBg = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; float totalLoop = 50.0; 
                 
-                float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0); float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
-                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0) * 0.25; float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0) * 0.25;
+                float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
+                float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
+                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0) * 0.25;
+                float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0) * 0.25;
+
                 float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
 
                 for(int i = 0; i < 4; i++) {
-                    float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5; float rippleTime = mod(controlledTime - timeOffset, totalLoop); if (rippleTime < 0.0) rippleTime += totalLoop;
+                    float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5;
+                    float rippleTime = mod(iTime - timeOffset, totalLoop);
+                    if (rippleTime < 0.0) rippleTime += totalLoop;
+                    
                     vec2 startCorner, center1, center2; float stageTime; 
                     if (rippleTime < 25.0) { startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3); stageTime = rippleTime; }
                     else { startCorner = vec2(-1.5, 0.7); center1 = vec2(-1.5, -1.3); center2 = vec2(1.5, 1.3); stageTime = rippleTime - 25.0; }
                     
-                    vec2 currentCenter = mix(startCorner, -startCorner, smoothstep(0.0, BASE_MOVE_DURATION * (6.0 / u_wave_a), stageTime));
+                    float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / u_wave_a);
+                    vec2 currentCenter = mix(startCorner, -startCorner, smoothstep(0.0, activeMoveDuration, stageTime));
                     float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
-                    vec2 toCorner = uv_center - currentCenter; float moveAngle = atan(-startCorner.y - startCorner.y, -startCorner.x - startCorner.x);
-                    vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
-                    leaf_uv.y += sin(leaf_uv.x * 1.2) * 0.12 * leafScale; float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * 0.65) / leafScale;
                     
-                    float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - stageTime * mod_vein_speed_a)) + 0.4) * 0.3 + 0.25 / (abs(sin(v_arc * 2.5 - stageTime * mod_vein_speed_b)) + 0.15) * 0.4) + (0.012 / (abs(leaf_uv.y / leafScale) + 0.012)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
-                    float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin; float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
+                    vec2 toCorner = uv_center - currentCenter;
+                    float moveAngle = atan(-startCorner.y - startCorner.y, -startCorner.x - startCorner.x);
+                    vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
+                    leaf_uv.y += sin(leaf_uv.x * 1.2) * 0.12 * leafScale;
+                    float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * 0.65) / leafScale;
+                    
+                    float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - stageTime * mod_vein_speed_a)) + 0.4) * 0.3 + 
+                                       0.25 / (abs(sin(v_arc * 2.5 - stageTime * mod_vein_speed_b)) + 0.15) * 0.4);
+                    leaf_glow += (0.012 / (abs(leaf_uv.y / leafScale) + 0.012)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
+                    
+                    float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
+                    float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
                     for(int j = 0; j < 2; j++) {
-                        vec2 toC = uv_center - centers[j]; vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos); float d = sqrt(rot.x * rot.x * 30.0 + rot.y * rot.y * 40.0) * 0.08;
-                        ellipse_glow += (pow(0.03 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + 0.03), 2.0) + pow(0.015 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + 0.015), 2.0)) * exp(-d * 0.5) * 1.225;
+                        vec2 toC = uv_center - centers[j];
+                        vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
+                        float d = sqrt(rot.x * rot.x * 30.0 + rot.y * rot.y * 40.0) * 0.08;
+                        float g1 = pow(0.03 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + 0.03), 2.0);
+                        float g2 = pow(0.015 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + 0.015), 2.0);
+                        ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 1.225;
                     }
-                    rippleLayerColorSum += (palette(controlledTime * 0.08 + float(i) * 0.25, vec3(float(i)*0.05)) * leaf_glow + palette(controlledTime * 0.08 + float(i) * 0.25 + 0.5, vec3(float(i)*0.05)) * ellipse_glow) * time_env * global_env;
+
+                    float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(10.0, 14.0, stageTime));
+                    float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
+                    
+                    rippleLayerColorSum += (palette(iTime * 0.08 + float(i) * 0.25, vec3(float(i)*0.05)) * leaf_glow + palette(iTime * 0.08 + float(i) * 0.25 + 0.5, vec3(float(i)*0.05)) * ellipse_glow) * time_env * global_env;
                     total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
                 }
-                vec3 finalGraphicColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
-                gl_FragColor = vec4(mix(vec3(0.92, 0.93, 0.95), finalGraphicColor, step(0.01, u_silver_mode)), 1.0);
+                vec3 finalGraphicColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
+                gl_FragColor = vec4(mix(baseSilverBg, finalGraphicColor, u_silver_mode), 1.0);
             }
         `;
 
         // 3. 🌊 海浪片元著色器
         const waveFragmentCode = paletteSharedGLSL + `
-            const float BASE_MOVE_DURATION = 12.0; const float BASE_SPEED_TWIST = 0.5; const float BASE_SPEED_WAVE1 = 2.0; const float BASE_SPEED_WAVE2 = 3.0; 
+            const float BASE_MOVE_DURATION = 12.0;  
+            const float BASE_SPEED_TWIST   = 0.5;   
+            const float BASE_SPEED_WAVE1   = 2.0;   
+            const float BASE_SPEED_WAVE2   = 3.0;   
+
             void main() {
-                vec2 uv_center = (vUv * 2.0 - 1.0); uv_center.x *= iResolution.x / iResolution.y;
-                float controlledTime = iTime * u_silver_mode;
-                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + controlledTime * 0.2, vec3(0.0));
+                vec2 uv_center = (vUv * 2.0 - 1.0);
+                uv_center.x *= iResolution.x / iResolution.y;
+
+                float sparkle = lakeSparkle(vUv, iTime);
+                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
+
+                float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2;
+                vec3 finalGraphicBg = palette(bg_t, vec3(0.0));
+
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; float totalLoop = 50.0; 
-                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 20.0); float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 20.0); float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 40.0);
+
+                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 20.0);
+                float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 20.0);
+                float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 40.0);
+
                 for(int i = 0; i < 2; i++) {
-                    float timeInterval = 8.0; float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.5; float rippleTime = mod(controlledTime - timeOffset, totalLoop); if (rippleTime < 0.0) rippleTime += totalLoop;
-                    vec2 startCorner; float stageTime; if (rippleTime < 25.0) { startCorner = vec2(-1.5, -0.7); stageTime = rippleTime; } else { startCorner = vec2(1.5, -0.7); stageTime = rippleTime - 25.0; }
+                    float timeInterval = 8.0;
+                    float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.5;
+                    float rippleTime = mod(iTime - timeOffset, totalLoop);
+                    if (rippleTime < 0.0) rippleTime += totalLoop;
+                    
+                    vec2 startCorner; float stageTime; 
+                    if (rippleTime < 25.0) { startCorner = vec2(-1.5, -0.7); stageTime = rippleTime; }
+                    else { startCorner = vec2(1.5, -0.7); stageTime = rippleTime - 25.0; }
+                    
+                    float progress = stageTime * (0.8 + float(i) * 0.01); 
                     vec2 currentCenter = mix(startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03), -(startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03)), smoothstep(0.0, BASE_MOVE_DURATION * (20.0 / u_wave_a), stageTime));
-                    vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); float angle = atan(toCenter.y, toCenter.x);
+                    
+                    vec2 toCenter = uv_center - currentCenter;
+                    float r = length(toCenter); float angle = atan(toCenter.y, toCenter.x);
                     float twistedAngle = angle + (1.5 / (r + 0.1)) * (-sign(startCorner.x)) - stageTime * mod_speed_twist;
-                    float base_d = (r / ((1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter))))) / (0.4 + 0.4 * pow(abs(sin(twistedAngle * 3.0)), 0.5) * sign(sin(twistedAngle * 3.0)));
-                    float wave_line1 = 0.1 / (abs(sin(base_d * 1.0 - stageTime * mod_speed_wave1)) + 0.1); float wave_line2 = 0.05 / (abs(cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2)) + 0.05);
-                    rippleLayerColorSum += palette(controlledTime * 0.05 + float(i) * 0.3, vec3(float(i) * 0.12, float(i) * 0.06, float(i) * 0.15)) * ((wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8) * smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(12.0, 17.0, stageTime)) * exp(-base_d * 0.15));
-                    total_mix_weight += (wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8) * smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(12.0, 17.0, stageTime)) * exp(-base_d * 0.15);
+
+                    float waveShape = pow(abs(sin(twistedAngle * 3.0)), 0.5) * sign(sin(twistedAngle * 3.0)); 
+                    float base_d = (r / ((1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter))))) / (0.4 + 0.4 * waveShape);
+                    
+                    float wave_line1 = 0.1 / (abs(sin(base_d * 1.0 - stageTime * mod_speed_wave1)) + 0.1);
+                    float wave_line2 = 0.05 / (abs(cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2)) + 0.05);
+                    float layer_glow = (wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8) * smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(12.0, 17.0, stageTime)) * exp(-base_d * 0.15);
+                    
+                    rippleLayerColorSum += palette(iTime * 0.05 + float(i) * 0.3, vec3(float(i) * 0.12, float(i) * 0.06, float(i) * 0.15)) * layer_glow;
+                    total_mix_weight += layer_glow;
                 }
-                vec3 finalGraphicColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5));
-                gl_FragColor = vec4(mix(vec3(0.92, 0.93, 0.95), finalGraphicColor, step(0.01, u_silver_mode)), 1.0);
+                vec3 finalGraphicColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5));
+                gl_FragColor = vec4(mix(baseSilverBg, finalGraphicColor, u_silver_mode), 1.0);
             }
         `;
     </script>
 
     <script>
-        // --- Three.js 引擎初始化 ---
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -245,7 +345,7 @@
         }
         animate();
 
-        // --- UI 控制流程 (精準對齊 Miro 流程圖文字框架) ---
+        // --- UI 控制流程 ---
         const dialogBox = document.getElementById('dialog-box');
         const dialogText = document.getElementById('dialog-text');
         const optionsContainer = document.getElementById('options-container');
@@ -264,7 +364,6 @@
             dialogBox.classList.add('show');
         }
 
-        // Output 1 -> 2 -> 3
         async function startFlow() {
             await delay(500);
             dialogBox.classList.add('show');
@@ -276,15 +375,14 @@
             showOption1();
         }
 
-        // Option 1 (精準對照 Miro 提問與按鈕字樣)
         async function showOption1() {
             dialogBox.classList.remove('show');
             await delay(1500);
             dialogText.innerText = "How do you feel right now?";
             optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="handleSelectOption1(10.0, 15.0)">1. I'm good 😊</div>
-                <div class="btn-option" onclick="handleSelectOption1(6.0, 10.0)">2. Just a bit tired ...</div>
-                <div class="btn-option" onclick="handleSelectOption1(20.0, 40.0)">3. Full of energy !!</div>
+                <div class="btn-option" onclick="handleSelectOption1(10.0, 15.0)">1. calm and relaxed</div>
+                <div class="btn-option" onclick="handleSelectOption1(6.0, 10.0)">2. a bit tired or stressed</div>
+                <div class="btn-option" onclick="handleSelectOption1(20.0, 40.0)">3. energized and motivated</div>
             `;
             optionsContainer.style.display = "flex";
             dialogBox.classList.add('show');
@@ -298,8 +396,6 @@
             setTimeout(async () => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
-                
-                // Output 4
                 dialogText.innerText = "What are you planning to do next ?";
                 dialogBox.classList.add('show');
                 await delay(2000); 
@@ -307,15 +403,14 @@
             }, 300);
         }
 
-        // Option 2 (精準對照 Miro 提問與按鈕字樣)
         async function showOption2() {
             dialogBox.classList.remove('show');
             await delay(1500);
             dialogText.innerText = "Choose a vibe for your next step:";
             optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="selectOption2(0.0, 0.1, 0.2)">1. Relax on my couch</div>
-                <div class="btn-option" onclick="selectOption2(0.3, 0.0, 0.4)">2. Having fun</div>
-                <div class="btn-option" onclick="selectOption2(0.5, 0.5, 0.0)">3. Party !</div>
+                <div class="btn-option" onclick="selectOption2(0.0, 0.1, 0.2)">1. Just unwind and chill</div>
+                <div class="btn-option" onclick="selectOption2(0.3, 0.0, 0.4)">2. Do something fun</div>
+                <div class="btn-option" onclick="selectOption2(0.5, 0.5, 0.0)">3. Stay active or go out</div>
             `;
             optionsContainer.style.display = "flex";
             dialogBox.classList.add('show');
@@ -332,7 +427,6 @@
             }, 300);
         }
 
-        // Option 3
         async function showOption3() {
             dialogText.innerText = "Pick a symbol that guides you:";
             optionsContainer.innerHTML = `
@@ -347,42 +441,36 @@
         function selectOption3(type) {
             dialogBox.classList.add('fade-fast');
 
-            // 1. 先在此處指派即將編譯的圖騰類型
-            let nextShaderCode = flowerFragmentCode;
-            if(type === 'flower') nextShaderCode = flowerFragmentCode;
-            else if(type === 'leaf') nextShaderCode = leafFragmentCode;
-            else if(type === 'wave') nextShaderCode = waveFragmentCode;
+            if(type === 'flower') {
+                mesh.material.fragmentShader = flowerFragmentCode;
+            } else if(type === 'leaf') {
+                mesh.material.fragmentShader = leafFragmentCode;
+            } else if(type === 'wave') {
+                mesh.material.fragmentShader = waveFragmentCode;
+            }
+            
+            shaderUniforms.u_wave_a.value = selectedWaveA;
+            shaderUniforms.u_wave_b.value = selectedWaveB;
+            mesh.material.needsUpdate = true;
 
             setTimeout(async () => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 
-                // 🛠️ 2. 【調整點 1】："A moment before the gift ..." 出現的這一秒（第 0 秒），黑幕遮罩立刻升起，Shader 圖騰在此刻悄悄替換，但 u_silver_mode 為 0，圖騰完全卡在第 0 秒靜止，絕不搶先偷跑！
                 dialogText.innerText = "A moment before the gift ...";
+                
                 theaterMask.style.opacity = '1';
                 dialogBox.classList.add('dark-mode');
                 dialogBox.classList.add('show');
-                
-                mesh.material.fragmentShader = nextShaderCode;
-                shaderUniforms.u_wave_a.value = selectedWaveA;
-                shaderUniforms.u_wave_b.value = selectedWaveB;
-                shaderUniforms.u_silver_mode.value = 0.0; // 確保凍結不穿幫
-                mesh.material.needsUpdate = true;
-
-                // 🛠️ 3. 【調整點 2】：黑幕與文字完美持滿 3 秒鐘過渡
                 await delay(3000); 
                 
-                // 🛠️ 3秒黑幕完結的這一瞬間，解鎖時間軸，幾何圖騰開始在後台從第0秒正式播放！
-                shaderUniforms.u_silver_mode.value = 1.0; 
+                shaderUniforms.u_silver_mode.value = 1.0;
 
-                // 4. 切換為 Output 6 最終文字
                 await updateDialogText("And here you are !");
-                await delay(2000); // 文字停留 2 秒
+                await delay(2000); 
                 
-                // 🛠️ 5. 【調整點 3】：等 "And here you are !" 完結、文字對話框完全消失的最後一刻，黑色半透明劇院遮罩才優雅退場消失
                 dialogBox.classList.remove('show');
-                await delay(1000); // 給文字框平滑收尾隱藏的緩衝時間
-                theaterMask.style.opacity = '0'; // 半透明黑色遮罩在此刻正式退去，完美展示圖騰成果！
+                theaterMask.style.opacity = '0'; 
             }, 300);
         }
 
