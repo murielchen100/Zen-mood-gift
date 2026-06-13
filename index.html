@@ -150,14 +150,14 @@
                 float total_mix_weight = 0.0;
                 float totalLoop = 30.0; 
 
-                for(int i = 0; i < 7; i++) {
+                for(int i = 0; i < 4; i++) {
                     float timeInterval = 1.2;
                     float timeOffset = float(i) * timeInterval;
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     vec2 startCorner; float stageTime; 
-                    if (rippleTime < 15.0) { startCorner = vec2(1.5, 0.7); stageTime = rippleTime; } 
-                    else { startCorner = vec2(-1.5, 0.7); stageTime = rippleTime - 15.0; }
+                    if (rippleTime < 15.0) { startCorner = vec2(1.7, 0.7); stageTime = rippleTime; } 
+                    else { startCorner = vec2(-1.7, 0.7); stageTime = rippleTime - 15.0; }
                     
                     float speedMultiplier = (0.8 + float(i) * 0.01) * 2.2; 
                     float progress = stageTime * speedMultiplier; 
@@ -170,7 +170,7 @@
                     vec2 currentCenter = mix(shiftedStart, targetCorner, moveProgress);
                     float centerDist = length(currentCenter);
                     float instanceSize = 1.0 - float(i) * 0.1; 
-                    float flowerScale = instanceSize * mix(1.0, 0.03, smoothstep(0.0, 1.5, centerDist));
+                    float flowerScale = instanceSize * mix(0.6, 0.02, smoothstep(0.0, 1.5, centerDist));
                     vec2 toCorner = uv_center - currentCenter;
                     float r = length(toCorner); float angle = atan(toCorner.y, toCorner.x); 
                     float theta5 = angle * 2.5; float flower_base = abs(sin(theta5)); float notch = 1.0 - abs(cos(theta5));
@@ -519,7 +519,7 @@
         function showDownloadButton() {
             optionsContainer.innerHTML = `
                 <div class="btn-option btn-download" onclick="handleDownloadAction()">💾 Download your vibe</div>
-                <div class="btn-option btn-next-time" onclick="handleCloseAction()">maybe next time</div>
+                <div class="btn-option btn-next-time" onclick="handleCloseAction()">Maybe next time</div>
             `;
             optionsContainer.style.display = "flex";
             dialogText.innerText = "Your personalized zen video is ready!";
