@@ -101,7 +101,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION (解耦大循環方向打架問題)
+        // SHADER CODES SECTION
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -137,7 +137,7 @@
             }
         `;
 
-        // 1. 🌸 花朵著色器
+        // 1. 🌸 花朵著色器 (完美狀態保護)
         const flowerFragmentCode = paletteSharedGLSL + `
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
@@ -161,7 +161,6 @@
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     
                     vec2 startCorner; 
-                    // 🛠️ 使用大局時間鎖定發射方向，防止新舊花朵方向打架
                     if (isFirstHalf) { startCorner = vec2(1.5, 0.7); } 
                     else { startCorner = vec2(-1.5, 0.7); }
                     
@@ -204,7 +203,7 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器 (🛠️ 終極重修：引入大局時間鎖定，消滅混雜問題)
+        // 2. 🌿 樹葉著色器 (完美狀態保護)
         const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION  = 12.0;  
             const float BASE_VEIN_SPEED_A   = 0.3;   
@@ -226,7 +225,6 @@
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
                 float totalLoop = 30.0; 
                 
-                // 🌟 【大局鎖定核心】用絕對時間判斷目前 30 秒中全畫面應該播哪一邊，不讓 offset 污染方向
                 float globalTime = mod(iTime, totalLoop);
                 bool isFirstHalf = (globalTime < 15.0);
                 
@@ -242,17 +240,13 @@
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     
                     vec2 startCorner, center1, center2; 
-                    
-                    // 🌟 修正點：全體樹葉的方向判定嚴格與大局同步，徹底解決融合混亂
                     if (isFirstHalf) { 
                         startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3); 
                     } else { 
                         startCorner = vec2(-1.5, 0.7); center1 = vec2(-1.5, -1.3); center2 = vec2(1.5, 1.3); 
                     }
                     
-                    // 獨立的時間軸只用來算局部的生長和推移，保證不閃爍
                     float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
-                    
                     float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / u_wave_a);
                     vec2 targetCorner = -startCorner;
                     vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
@@ -272,7 +266,6 @@
                                        0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.15) * 0.4);
                     leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
                     
-                    // 🌟 修正點：橢圓的翻轉正負號也強制與大局同步，不再因Offset錯亂
                     float current_sin = isFirstHalf ? ext_sin : -ext_sin;
                     float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
                     
@@ -300,7 +293,7 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器
+        // 3. 🌊 海浪著色器 (🛠️ 修正：加入防空轉安全常數 + 後台編譯，根除點擊卡頓與黑白線條)
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0; const float BASE_SPEED_TWIST = 0.5; const float BASE_SPEED_WAVE1 = 2.0; const float BASE_SPEED_WAVE2 = 3.0; 
             void main() {
@@ -328,7 +321,10 @@
                     vec2 currentCenter = mix(startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03), -(startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03)), smoothstep(0.0, BASE_MOVE_DURATION * (20.0 / u_wave_a), stageTime));
                     vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); float angle = atan(toCenter.y, toCenter.x);
                     float twistedAngle = angle + (1.5 / (r + 0.1)) * (-sign(startCorner.x)) - stageTime * mod_speed_twist;
-                    float waveShape = pow(abs(sin(twistedAngle * 3.0)), 0.5) * sign(sin(twistedAngle * 3.0)); 
+                    
+                    // 🛠️ 關鍵修正：加入微小的安全浮點數（+ 0.00001），防止 abs(sin) 在第 0 秒算出來是絕對的 0.0 導致 pow 出現 NaN 硬體死角
+                    float waveShape = pow(abs(sin(twistedAngle * 3.0)) + 0.00001, 0.5) * sign(sin(twistedAngle * 3.0)); 
+                    
                     float base_d = (r / ((1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter))))) / (0.4 + 0.4 * waveShape);
                     float wave_line1 = 0.1 / (abs(sin(base_d * 1.0 - stageTime * mod_speed_wave1)) + 0.1); float wave_line2 = 0.05 / (abs(cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2)) + 0.05);
                     float layer_glow = (wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8) * smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(9.0, 12.0, stageTime)) * exp(-base_d * 0.15);
@@ -499,6 +495,10 @@
             shaderUniforms.u_wave_b.value = selectedWaveB;
             mesh.material.needsUpdate = true;
 
+            // 🛠️ 預編譯解決卡頓：在按下海浪選項的瞬間，逼迫 WebGL 提早編譯與清除初始畫面緩衝區
+            renderer.compile(scene, camera);
+            renderer.render(scene, camera);
+
             setTimeout(async () => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
@@ -509,8 +509,12 @@
                 dialogBox.classList.add('dark-mode');
                 dialogBox.classList.add('show');
                 
+                // 在這 3 秒黑畫面與文字轉場期間，海浪 Shader 已經在後台完美編譯就緒
                 await delay(3000); 
                 
+                // 再次強迫刷新渲染緩衝，徹底抹除任何可能殘留的 0 秒初始死角畫面
+                renderer.render(scene, camera);
+
                 // [精準同步點] 撤銷遮罩、時間解凍起跑、開啟錄影
                 shaderUniforms.u_silver_mode.value = 1.0; 
 
@@ -578,10 +582,11 @@
             }, 1000);
         }
 
+        // 🛠️ 修正：Maybe next time 按鈕的 M 精準大寫化
         function showDownloadButton() {
             optionsContainer.innerHTML = `
                 <div class="btn-option btn-download" onclick="handleDownloadAction()">💾 Download your vibe</div>
-                <div class="btn-option btn-next-time" onclick="handleCloseAction()">maybe next time</div>
+                <div class="btn-option btn-next-time" onclick="handleCloseAction()">Maybe next time</div>
             `;
             optionsContainer.style.display = "flex";
             dialogText.innerText = "Your personalized zen video is ready!";
