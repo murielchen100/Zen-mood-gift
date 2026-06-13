@@ -26,7 +26,6 @@
         .btn-option:hover { background: rgba(0, 0, 0, 0.1); border-color: #333; transform: translateY(-2px); }
         .cloud-box.dark-mode .btn-option:hover { background: rgba(255, 255, 255, 0.3); border-color: #fff; }
 
-        /* 右下角錄影 UI 提示樣式 */
         #recording-ui {
             position: absolute;
             bottom: 24px;
@@ -53,7 +52,6 @@
         }
         @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
 
-        /* 下載按鈕特殊樣式 */
         .btn-download {
             background: #27ae60 !important;
             color: white !important;
@@ -66,7 +64,6 @@
             transform: translateY(-2px);
         }
 
-        /* Maybe next time 按鈕樣式 */
         .btn-next-time {
             background: rgba(255, 255, 255, 0.1) !important;
             color: rgba(255, 255, 255, 0.7) !important;
@@ -101,7 +98,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION (共用調色盤與安全底層)
+        // SHADER CODES SECTION (共用安全底層)
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -117,10 +114,7 @@
             uniform float u_silver_mode; 
             varying vec2 vUv;
 
-            // 🎨 【純淨薰衣草紫色系】（頻率 1.0 同步，絕不爆螢光）
-            // 備用更換參考：
-            // 粉棕橘：a(0.48,0.40,0.35) b(0.38,0.32,0.28) c(1.,1.,1.) d(0.10,0.35,0.50)
-            // 藍綠色：a(0.35,0.48,0.50) b(0.30,0.40,0.42) c(1.,1.,1.) d(0.55,0.70,0.85)
+            // 🎨 【純淨薰衣草紫色系】不爆螢光，高質感漸層
             vec3 palette( float t, vec3 bias ){ 
                 vec3 a = vec3(0.45, 0.42, 0.50);   
                 vec3 b = vec3(0.40, 0.38, 0.45);   
@@ -205,7 +199,6 @@
                 vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
                 vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
                 
-                // ⚡【您的專屬色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
@@ -213,7 +206,7 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器（僅優化內部紋理密度與波紋週期，精確達到 1/4 慢速與稀疏感）
+        // 2. 🌿 樹葉著色器（🛠️ 邏輯校正：已將切換點完美修正為 15.0 秒）
         const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION  = 12.0;  
             const float BASE_VEIN_SPEED_A   = 0.3;   
@@ -222,10 +215,10 @@
             const float BASE_ELLIP_SPEED_B  = 2.0;   
 
             void main() {
-                // 【稀疏度調優】將幾何波紋頻率縮減，使葉脈線條拉開、變稀疏不雜亂
-                float waveFreq    = 0.6;    float waveAmp    = 0.12;
+                // 保持您最滿意的原始幾何密度與波紋參數
+                float waveFreq    = 1.2;    float waveAmp    = 0.12;
                 float arcCurv     = 0.8;    float veinThick  = 0.012;
-                float ellipScale  = 0.04;   float ellipRatioX = 30.0; float ellipRatioY = 40.0; 
+                float ellipScale  = 0.08;   float ellipRatioX = 30.0; float ellipRatioY = 40.0; 
                 float ellipThick1 = 0.03;   float ellipThick2 = 0.015; 
                 float sharpen     = 3.5;    float colorDelay  = 0.5; 
 
@@ -235,16 +228,16 @@
                 vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
                 
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
-                float totalLoop = 30.0; 
+                float totalLoop = 30.0; // 總循環週期 30 秒
                 
                 float globalTime = mod(iTime, totalLoop);
-                bool isFirstHalf = (globalTime < 15.0);
+                
+                float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
                 
                 float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
                 float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
                 float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0);
                 float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0);
-                float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
 
                 for(int i = 0; i < 4; i++) {
                     float timeOffset = float(i) * 4.2; 
@@ -252,13 +245,17 @@
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     
                     vec2 startCorner, center1, center2; 
-                    if (isFirstHalf) { 
+                    float stageTime; 
+                    
+                    // ✨【致命錯誤修正】：精確對齊 15.0 秒邊界，配合 30 秒總循環
+                    if (rippleTime < 15.0) { 
                         startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3); 
+                        stageTime = rippleTime;
                     } else { 
                         startCorner = vec2(-1.5, 0.7); center1 = vec2(-1.5, -1.3); center2 = vec2(1.5, 1.3); 
+                        stageTime = rippleTime - 15.0;
                     }
                     
-                    float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
                     float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / max(u_wave_a, 0.1));
                     vec2 targetCorner = -startCorner;
                     vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
@@ -273,25 +270,22 @@
                     leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
                     float v_arc = (leaf_uv.x - sqrt(max(abs(leaf_uv.y), 0.0001)) * arcCurv) / leafScale;
                     
-                    // 【降速核心】在 sin 運算的時間軸乘上 0.25，讓葉脈紋理的流動速度精準慢到原來的 1/4
-                    float hz_a_time = stageTime * mod_vein_speed_a * 0.25;
-                    float hz_b_time = stageTime * mod_vein_speed_b * 0.25;
+                    float hz_a_time = stageTime * mod_vein_speed_a;
+                    float hz_b_time = stageTime * mod_vein_speed_b;
                     
-                    // 調整空間係線（v_arc * 0.5），使內部波紋間距更開、更稀疏
-                    float leaf_glow = (0.6 / (abs(sin(v_arc * 0.5 - hz_a_time)) + 0.4) * 0.3 + 
-                                       0.25 / (abs(sin(v_arc * 1.25 - hz_b_time)) + 0.15) * 0.4);
+                    float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - hz_a_time)) + 0.4) * 0.3 + 
+                                       0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.15) * 0.4);
                     leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
                     
-                    float current_sin = isFirstHalf ? ext_sin : -ext_sin;
+                    float current_sin = (rippleTime < 15.0) ? ext_sin : -ext_sin;
                     float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
                     
                     for(int j = 0; j < 2; j++) {
                         vec2 toC = uv_center - centers[j]; vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
                         float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
                         
-                        // 【降速與稀疏優化】橢圓波紋時間乘以 0.25，且將距離 d 調疏
-                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.4 - stageTime * mod_ellip_speed_a * 0.25)) + ellipThick1), 1.8);
-                        float g2 = pow(ellipThick2 / (abs(sin(d * 1.25 - stageTime * mod_ellip_speed_b * 0.25)) + ellipThick2), 1.8);
+                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + ellipThick1), 1.8);
+                        float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + ellipThick2), 1.8);
                         ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
                     }
                     
@@ -307,7 +301,6 @@
                 }
                 vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
                 
-                // ⚡【您的專屬色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
@@ -353,302 +346,4 @@
                     float twistedAngle = angle + (1.5 / (r + 0.1)) * (-sign(startCorner.x)) - stageTime * mod_speed_twist;
                     
                     float sin_val = sin(twistedAngle * 3.0);
-                    float waveShape = sqrt(max(abs(sin_val), 0.001)) * (sin_val >= 0.0 ? 1.0 : -1.0); 
-                    
-                    float scaleDenominator = (1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter)));
-                    scaleDenominator = max(scaleDenominator, 0.01);
-                    float shapeDenominator = 0.5 + 0.35 * waveShape; 
-                    float base_d = (r / scaleDenominator) / shapeDenominator;
-                    
-                    float wave_line1 = 0.1 / (abs(sin(base_d * 1.0 - stageTime * mod_speed_wave1)) + 0.1); 
-                    float wave_line2 = 0.05 / (abs(cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2)) + 0.05);
-                    
-                    float layer_glow = (wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8) * smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(9.0, 12.0, stageTime)) * exp(-base_d * 0.15);
-                    vec3 waveColor = palette(iTime * 0.05 + float(i) * 0.3, vec3(float(i) * 0.12, float(i) * 0.06, float(i) * 0.15));
-                    rippleLayerColorSum += waveColor * layer_glow;
-                    total_mix_weight += layer_glow;
-                }
-                vec3 finalColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5));
-                
-                // ⚡【您的專屬色彩防線】
-                finalColor = mix(vec3(0.5), finalColor, 1.2); 
-                finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
-                
-                gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
-            }
-        `;
-    </script>
-
-    <script>
-        // ==========================================
-        // THREE.JS & LOGIC CONTROL SECTION
-        // ==========================================
-        const canvas = document.getElementById('webgl-canvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true }); 
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        
-        const scene = new THREE.Scene();
-        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-        const geometry = new THREE.PlaneGeometry(2, 2);
-
-        const shaderUniforms = {
-            iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-            iTime: { value: 0 },
-            u_wave_a: { value: 6.0 },   
-            u_wave_b: { value: 10.0 },  
-            u_palette_bias: { value: new THREE.Vector3(0.0, 0.1, 0.2) },
-            u_silver_mode: { value: 0.0 } 
-        };
-
-        let shaderMaterial = new THREE.ShaderMaterial({
-            vertexShader: vertexShaderCode,
-            fragmentShader: flowerFragmentCode,
-            uniforms: shaderUniforms,
-            depthWrite: false, depthTest: false
-        });
-        const mesh = new THREE.Mesh(geometry, shaderMaterial);
-        scene.add(mesh);
-
-        window.addEventListener('resize', () => {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            shaderUniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
-        });
-
-        let isShaderRunning = false; 
-        const clock = new THREE.Clock();
-        clock.stop();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (isShaderRunning) {
-                shaderUniforms.iTime.value = clock.getElapsedTime();
-            } else {
-                shaderUniforms.iTime.value = 0;
-            }
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        // --- UI 控制流程 DOM ---
-        const dialogBox = document.getElementById('dialog-box');
-        const dialogText = document.getElementById('dialog-text');
-        const optionsContainer = document.getElementById('options-container');
-        const silverOverlay = document.getElementById('silver-mirror-overlay');
-        const theaterMask = document.getElementById('theater-mask');
-        const recordingUI = document.getElementById('recording-ui');
-        const recordingText = document.getElementById('recording-text');
-
-        const delay = ms => new Promise(res => setTimeout(res, ms));
-
-        let selectedWaveA = 6.0;
-        let selectedWaveB = 10.0;
-        let selectedType = 'flower'; 
-
-        async function updateDialogText(text) {
-            dialogBox.classList.remove('show');
-            await delay(1500);
-            dialogText.innerText = text;
-            dialogBox.classList.add('show');
-        }
-
-        async function startFlow() {
-            await delay(500);
-            dialogBox.classList.add('show');
-            await delay(2000); 
-            await updateDialogText("How's your day?");
-            await delay(2000); 
-            await updateDialogText("Just take a breathe, and tell us ...");
-            await delay(2000); 
-            showOption1();
-        }
-
-        async function showOption1() {
-            dialogBox.classList.remove('show');
-            await delay(1500);
-            dialogText.innerText = "How do you feel right now?";
-            optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="handleSelectOption1(10.0, 15.0)">1. calm and relaxed</div>
-                <div class="btn-option" onclick="handleSelectOption1(6.0, 10.0)">2. a bit tired or stressed</div>
-                <div class="btn-option" onclick="handleSelectOption1(20.0, 40.0)">3. energized and motivated</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogBox.classList.add('show');
-        }
-
-        function handleSelectOption1(waveA, waveB) {
-            dialogBox.classList.add('fade-fast');
-            selectedWaveA = waveA;
-            selectedWaveB = waveB;
-
-            setTimeout(async () => {
-                optionsContainer.style.display = "none";
-                dialogBox.classList.remove('fade-fast');
-                dialogText.innerText = "What are you planning to do next ?";
-                dialogBox.classList.add('show');
-                await delay(2000); 
-                showOption2();
-            }, 300);
-        }
-
-        async function showOption2() {
-            dialogBox.classList.remove('show');
-            await delay(1500);
-            dialogText.innerText = "Choose a vibe for your next step:";
-            optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="selectOption2(0.0, 0.1, 0.2)">1. Just unwind and chill</div>
-                <div class="btn-option" onclick="selectOption2(0.3, 0.0, 0.4)">2. Do something fun</div>
-                <div class="btn-option" onclick="selectOption2(0.5, 0.5, 0.0)">3. Stay active or go out</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogBox.classList.add('show');
-        }
-
-        function selectOption2(r_bias, g_bias, b_bias) {
-            dialogBox.classList.add('fade-fast');
-            shaderUniforms.u_palette_bias.value.set(r_bias, g_bias, b_bias);
-
-            setTimeout(() => {
-                optionsContainer.style.display = "none";
-                dialogBox.classList.remove('fade-fast');
-                showOption3();
-            }, 300);
-        }
-
-        async function showOption3() {
-            dialogText.innerText = "Pick a symbol that guides you:";
-            optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="selectOption3('flower')">🌸 Sakura Flower</div>
-                <div class="btn-option" onclick="selectOption3('leaf')">🌿 Zen Leaf</div>
-                <div class="btn-option" onclick="selectOption3('wave')">🌊 Great Wave</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogBox.classList.add('show');
-        }
-
-        function selectOption3(type) {
-            dialogBox.classList.add('fade-fast');
-            selectedType = type;
-
-            if(type === 'flower') { mesh.material.fragmentShader = flowerFragmentCode; } 
-            else if(type === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
-            else if(type === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
-            
-            shaderUniforms.u_wave_a.value = selectedWaveA;
-            shaderUniforms.u_wave_b.value = selectedWaveB;
-            mesh.material.needsUpdate = true;
-
-            setTimeout(async () => {
-                optionsContainer.style.display = "none";
-                dialogBox.classList.remove('fade-fast');
-                
-                dialogText.innerText = "A moment before the gift ...";
-                
-                theaterMask.style.opacity = '1';
-                dialogBox.classList.add('dark-mode');
-                dialogBox.classList.add('show');
-                
-                await delay(3000); 
-                
-                shaderUniforms.u_silver_mode.value = 1.0; 
-
-                isShaderRunning = true; 
-                clock.start(); 
-
-                startVideoRecording(); 
-
-                await updateDialogText("And here you are !");
-                await delay(2000); 
-                
-                dialogBox.classList.remove('show');
-                theaterMask.style.opacity = '0'; 
-            }, 300);
-        }
-
-        // --- 高清錄影核心邏輯 ---
-        let mediaRecorder;
-        let recordedChunks = [];
-        let videoURL = null;
-
-        function startVideoRecording() {
-            recordedChunks = []; 
-            const stream = canvas.captureStream(30); 
-            
-            const options = { 
-                mimeType: 'video/webm;codecs=vp9,opus',
-                videoBitsPerSecond: 8000000 
-            };
-            
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options.mimeType = 'video/webm;codecs=vp8';
-                options.videoBitsPerSecond = 8000000;
-            }
-
-            mediaRecorder = new MediaRecorder(stream, options);
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                videoURL = URL.createObjectURL(blob);
-                showDownloadButton(); 
-            };
-
-            mediaRecorder.start();
-            
-            recordingUI.style.display = 'flex';
-            recordingText.innerText = "Recording for 30 sec";
-
-            let secondsPassed = 0;
-            const recordTimer = setInterval(() => {
-                secondsPassed++;
-                
-                if (secondsPassed === 10) {
-                    recordingText.innerText = "20 sec left...";
-                } else if (secondsPassed === 20) {
-                    recordingText.innerText = "10 sec left...";
-                } else if (secondsPassed >= 30) {
-                    clearInterval(recordTimer);
-                    mediaRecorder.stop(); 
-                    recordingUI.style.display = 'none'; 
-                }
-            }, 1000);
-        }
-
-        function showDownloadButton() {
-            optionsContainer.innerHTML = `
-                <div class="btn-option btn-download" onclick="handleDownloadAction()">💾 Download your vibe</div>
-                <div class="btn-option btn-next-time" onclick="handleCloseAction()">maybe next time</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogText.innerText = "Your personalized zen video is ready!";
-            dialogBox.classList.add('show');
-        }
-
-        function handleDownloadAction() {
-            if (videoURL) {
-                const a = document.createElement('a');
-                a.href = videoURL;
-                a.download = `zen-mood-gift-${selectedType}.webm`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-            closeFinalDialog();
-        }
-
-        function handleCloseAction() {
-            closeFinalDialog();
-        }
-
-        function closeFinalDialog() {
-            dialogBox.classList.remove('show'); 
-            setTimeout(() => {
-                optionsContainer.style.display = "none"; 
-            }, 1500); 
-        }
-
-        startFlow();
-    </script>
-</body>
-</html>
+                    float waveShape = sqrt(max(abs(sin_val), 0.001)) * (sin_val >= 0.0 ? 1.0 : -
