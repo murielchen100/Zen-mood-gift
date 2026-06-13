@@ -11,7 +11,7 @@
         #webgl-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         #silver-mirror-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: transparent; transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
         
-        /* 🛠️ CSS 關鍵修正：移除原本的 transition，讓它變黑時瞬間全黑（0秒），只有在退場時才用 JS 控制或保持乾淨 */
+        /* 🛠️ 嚴格還原：回到最完美的高質感半透明遮罩與 1.5 秒淡入淡出 */
         #theater-mask { 
             position: absolute; 
             top: 0; 
@@ -19,17 +19,12 @@
             width: 100%; 
             height: 100%; 
             z-index: 3; 
-            background-color: #1a1a1a; /* 稍微加深底色，確保絕對純黑遮蔽 */
+            background-color: rgba(0, 0, 0, 0.65); 
             opacity: 0; 
+            transition: opacity 1.5s ease; 
             pointer-events: none; 
         }
         
-        /* 🛠️ 新增：當亮起時，淡出隱形可以用 1.5 秒優雅退場 */
-        #theater-mask.fade-out {
-            transition: opacity 1.5s ease;
-            opacity: 0 !important;
-        }
-
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
         
         .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
@@ -120,7 +115,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION
+        // SHADER CODES SECTION (30秒循環，方向解耦版)
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -174,14 +169,14 @@
                 bool isFirstHalf = (globalTime < 15.0);
 
                 for(int i = 0; i < 7; i++) {
-                    float timeInterval = 1.8;
+                    float timeInterval = 1.2;
                     float timeOffset = float(i) * timeInterval;
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     
                     vec2 startCorner; 
-                    if (isFirstHalf) { startCorner = vec2(1.8, 0.7); } 
-                    else { startCorner = vec2(-1.8, 0.7); }
+                    if (isFirstHalf) { startCorner = vec2(1.5, 0.7); } 
+                    else { startCorner = vec2(-1.5, 0.7); }
                     
                     float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
                     
@@ -341,7 +336,7 @@
                     vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); float angle = atan(toCenter.y, toCenter.x);
                     float twistedAngle = angle + (1.5 / (r + 0.1)) * (-sign(startCorner.x)) - stageTime * mod_speed_twist;
                     
-                    float waveShape = pow(abs(sin(twistedAngle * 3.0)) + 0.00001, 0.5) * sign(sin(twistedAngle * 3.0)); 
+                    float waveShape = pow(abs(sin(twistedAngle * 3.0)), 0.5) * sign(sin(twistedAngle * 3.0)); 
                     
                     float base_d = (r / ((1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter))))) / (0.4 + 0.4 * waveShape);
                     float wave_line1 = 0.1 / (abs(sin(base_d * 1.0 - stageTime * mod_speed_wave1)) + 0.1); float wave_line2 = 0.05 / (abs(cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2)) + 0.05);
@@ -505,59 +500,49 @@
             dialogBox.classList.add('fade-fast');
             selectedType = type;
 
+            if(type === 'flower') { mesh.material.fragmentShader = flowerFragmentCode; } 
+            else if(type === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
+            else if(type === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
+            
+            shaderUniforms.u_wave_a.value = selectedWaveA;
+            shaderUniforms.u_wave_b.value = selectedWaveB;
+            mesh.material.needsUpdate = true;
+
             setTimeout(async () => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 
-                // 🛠️ 1. 關鍵修正：移除 CSS 漸變類別，確保遮罩「瞬間變成絕對純黑」，徹底封印 Canvas 畫面！
-                theaterMask.classList.remove('fade-out');
-                theaterMask.style.opacity = '1';
-                
+                // 🛠️ 嚴格還原點 1：文字改變、同時啟動 1.5s 的半透明遮罩淡入
                 dialogText.innerText = "A moment before the gift ...";
+                theaterMask.style.opacity = '1'; 
                 dialogBox.classList.add('dark-mode');
                 dialogBox.classList.add('show');
                 
-                // ⏳ 給布幕 0.3 秒時間建立最安全的純黑密室
-                await delay(300); 
-
                 // ================================================================
-                // 2. 【暗度陳倉】在絕對純黑的保護傘下更換劇本並引發後台編譯。
+                // 🛠️ 嚴格還原點 2：【最完美的時間點】在 a moment... 字體亮起的這一瞬間，
+                // 所有 Shader 的第 0.000 秒動態與高清錄影直接在半透明遮罩後方全速奔跑！
                 // ================================================================
-                if(selectedType === 'flower') { mesh.material.fragmentShader = flowerFragmentCode; } 
-                else if(selectedType === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
-                else if(selectedType === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
-                
-                shaderUniforms.u_wave_a.value = selectedWaveA;
-                shaderUniforms.u_wave_b.value = selectedWaveB;
-                mesh.material.needsUpdate = true;
-
-                // 逼迫 WebGL 在全黑狀態下先消化掉所有可能引起的硬體卡頓與死角畫面
-                renderer.compile(scene, camera);
-                renderer.render(scene, camera);
-                // ================================================================
-
-                // ⏳ 補足剩餘的沉澱時間（總計約 3 秒）
-                await delay(2700); 
-                
-                // [精準三位一體同步點] 解除銀色遮罩、時間解凍起跑、錄影開始
-                shaderUniforms.u_silver_mode.value = 1.0; 
-
                 isShaderRunning = true; 
                 clock.start(); 
 
                 startVideoRecording(); 
+                // ================================================================
+
+                // 在這段優雅的半透明氛圍下沉澱 3 秒鐘
+                await delay(3000); 
+                
+                // 3 秒一到，撤銷銀色解耦模式，進入最終對話
+                shaderUniforms.u_silver_mode.value = 1.0; 
 
                 await updateDialogText("And here you are !");
                 await delay(2000); 
                 
                 dialogBox.classList.remove('show');
-                
-                // 🛠️ 3. 退場時，加上 fade-out 類別，讓黑色大布幕優雅地慢慢變透明
-                theaterMask.classList.add('fade-out');
+                theaterMask.style.opacity = '0'; // 半透明大面罩退場
             }, 300);
         }
 
-        // --- 高清錄影核心邏輯 ---
+        // --- 高清錄影核心邏輯 (8Mbps) ---
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
