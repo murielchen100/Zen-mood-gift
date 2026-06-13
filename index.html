@@ -114,10 +114,7 @@
             uniform float u_silver_mode; 
             varying vec2 vUv;
 
-            // 🎨 【純淨薰衣草紫色系】（頻率 1.0 同步，絕不爆螢光）
-            // 備用更換參考：
-            // 粉棕橘：a(0.48,0.40,0.35) b(0.38,0.32,0.28) c(1.,1.,1.) d(0.10,0.35,0.50)
-            // 藍綠色：a(0.35,0.48,0.50) b(0.30,0.40,0.42) c(1.,1.,1.) d(0.55,0.70,0.85)
+            // 🎨 【純淨薰衣草紫色系】不爆螢光，在深淺紫之間優雅流動
             vec3 palette( float t, vec3 bias ){ 
                 vec3 a = vec3(0.45, 0.42, 0.50);   
                 vec3 b = vec3(0.40, 0.38, 0.45);   
@@ -202,7 +199,7 @@
                 vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
                 vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
                 
-                // ⚡【您的專屬色彩防線】
+                // ⚡【色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
@@ -236,6 +233,7 @@
                 float globalTime = mod(iTime, totalLoop);
                 bool isFirstHalf = (globalTime < 15.0);
                 
+                // 【還原原始正確速度比例】
                 float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
                 float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
                 float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0);
@@ -255,6 +253,8 @@
                     }
                     
                     float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
+                    
+                    // 【還原原始漫遊速度公式】
                     float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / max(u_wave_a, 0.1));
                     vec2 targetCorner = -startCorner;
                     vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
@@ -300,7 +300,7 @@
                 }
                 vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
                 
-                // ⚡【您的專屬色彩防線】
+                // ⚡【色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
@@ -325,9 +325,10 @@
                 float globalTime = mod(iTime, totalLoop);
                 bool isFirstHalf = (globalTime < 15.0);
 
-                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 6.0); 
-                float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 6.0); 
-                float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 10.0);
+                // 【還原原始正確速度比例與除數】
+                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 20.0); 
+                float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 20.0); 
+                float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 40.0);
 
                 for(int i = 0; i < 2; i++) {
                     float timeInterval = 7.5; float timeOffset = float(i) * timeInterval; float rippleTime = mod(iTime - timeOffset, totalLoop);
@@ -339,7 +340,10 @@
                     float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
                     vec2 startPos = startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03);
                     vec2 targetPos = -startPos;
-                    vec2 currentCenter = mix(startPos, targetPos, smoothstep(0.0, BASE_MOVE_DURATION, stageTime));
+                    
+                    // 【還原原始漫遊週期 20.0 / u_wave_a】
+                    float activeMoveDuration = BASE_MOVE_DURATION * (20.0 / max(u_wave_a, 0.1));
+                    vec2 currentCenter = mix(startPos, targetPos, smoothstep(0.0, activeMoveDuration, stageTime));
                     
                     vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); 
                     float angle = atan(toCenter.y, toCenter.x + 0.0001); 
@@ -363,7 +367,7 @@
                 }
                 vec3 finalColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5));
                 
-                // ⚡【您的專屬色彩防線】
+                // ⚡【色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
