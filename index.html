@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zen Mood Gift - Interactive System</title>
+    <title>Zen Mood Gift - Personalized Interactive Experience</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * {
@@ -16,35 +16,29 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #e0e0e0; /* 基礎銀灰色底 */
+            background-color: #e0e0e0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        /* 🖥️ Three.js Canvas 背景 */
         #webgl-canvas {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 1;
         }
 
-        /* 🥈 【新功能】鏡面銀色+白光掃過的環境遮罩層 */
+        /* 🥈 鏡面銀色+白光掃過遮罩層 */
         #silver-mirror-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 2;
             background: linear-gradient(135deg, #cfd9df 0%, #e2ebf0 100%);
             box-shadow: inset 0 0 100px rgba(255,255,255,0.6);
-            transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1); /* 絲滑淡出 */
+            transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
             overflow: hidden;
         }
-        /* 💡 流動的白光環境特效 */
         #silver-mirror-overlay::after {
             content: '';
             position: absolute;
@@ -61,14 +55,14 @@
             50%, 100% { left: 140%; opacity: 0; }
         }
 
-        /* 🕶️ 【新功能】半透明黑色劇場遮罩 (用於中後期揭幕) */
+        /* 🕶️ 半透明黑色劇場遮罩 */
         #theater-mask {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
             z-index: 3;
-            background-color: rgba(0, 0, 0, 0.65); /* 65% 半透明黑 */
-            opacity: 0; /* 預設不顯示，等 a moment before the gift 才現身 */
+            background-color: rgba(0, 0, 0, 0.65);
+            opacity: 0;
             transition: opacity 1.5s ease;
             pointer-events: none;
         }
@@ -78,7 +72,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            z-index: 4; /* 確保在所有遮罩最上方 */
+            z-index: 4;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -92,7 +86,7 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 2.5rem 3.5rem;
             border-radius: 24px;
-            color: #333; /* 起始在銀色背景，使用深色字 */
+            color: #333;
             text-align: center;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             pointer-events: auto;
@@ -101,7 +95,6 @@
             transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease;
             animation: floatingBump 6s ease-in-out infinite alternate;
         }
-        /* 當進入黑夜/Shader 模式時，對話框自動轉換成極光白字 */
         .cloud-box.dark-mode {
             color: #fff;
             background: rgba(0, 0, 0, 0.2);
@@ -147,9 +140,7 @@
 <body>
 
     <canvas id="webgl-canvas"></canvas>
-    
     <div id="silver-mirror-overlay"></div>
-    
     <div id="theater-mask"></div>
 
     <div id="ui-container">
@@ -171,10 +162,8 @@
 
         const flowerShader = shaderUniformsHeader + `
             void main() {
-                vec2 uv_center = (gl_FragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
-                vec2 uv_bg = gl_FragCoord.xy / iResolution.xy;
-                float bg_t = uv_bg.x * 0.1 + uv_bg.y * 0.1 + iTime * (0.2 * u_freq_multiplier);
-                vec3 backgroundColor = palette(bg_t, vec3(0.0));
+                vec2 uv_center = (gl_FragCoord.xy * 2.0 - iResolution.xy) / iResolution.y; vec2 uv_bg = gl_FragCoord.xy / iResolution.xy;
+                float bg_t = uv_bg.x * 0.1 + uv_bg.y * 0.1 + iTime * (0.2 * u_freq_multiplier); vec3 backgroundColor = palette(bg_t, vec3(0.0));
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; float totalLoop = 50.0; 
                 for(int i = 0; i < 4; i++) {
                     float timeInterval = 3.0; float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.5;
@@ -258,7 +247,7 @@
                     float waveShape = sin(twistedAngle * 3.0); waveShape = pow(abs(waveShape), 0.5) * sign(waveShape); float base_d = (r / waveScale) / (0.4 + 0.4 * waveShape);
                     float wave1 = sin(base_d * 1.0 - progress * 2.0); float wave2 = cos(base_d * 2.25 + twistedAngle * 2.0 - progress * 3.0);
                     float wave_line1 = 0.1 / (abs(wave1) + 0.1); float wave_line2 = 0.05 / (abs(wave2) + 0.05); float layer_glow = wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8;
-                    float fadeIn = smoothstep(0.0, 1.5, stageTime * u_freq_multiplier); float fadeOut = 1.0 - smoothstep(12.0, 17.0, stageTime * u_freq_multiplier);
+                    float fadeIn = smoothstep(0.0, 1.5, stageTime * u_freq_multiplier); float fadeOut = 1.0 - smoothstep(12.0, 17.0, stageTime * u_frag_multiplier);
                     layer_glow *= fadeIn * fadeOut * exp(-base_d * 0.15);
                     vec3 thisCornerColor = palette(iTime * (0.05 * u_freq_multiplier) + float(i) * 0.3, colorBias); rippleLayerColorSum += thisCornerColor * layer_glow; total_mix_weight += layer_glow;
                 }
@@ -272,7 +261,6 @@
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
@@ -287,7 +275,7 @@
 
         const geometry = new THREE.PlaneGeometry(2, 2);
         let shaderMaterial = new THREE.ShaderMaterial({
-            fragmentShader: flowerShader, // 預設櫻花，一開始被銀色遮罩擋住看不到
+            fragmentShader: flowerShader,
             uniforms: shaderUniforms,
             depthWrite: false, depthTest: false
         });
@@ -308,12 +296,74 @@
         animate();
 
 
-        // --- 2. 劇本動態與遮罩邏輯控制群 ---
+        // --- 2. 🎵 Web Audio API 雙耳節律立體聲合成引擎 ---
+        let audioCtx = null;
+        let leftOsc = null, rightOsc = null;
+        let globalGain = null;
+        let isAudioStarted = false;
+
+        // 核心底層：初始化並架設音訊節點路由線路
+        function initBrainwaveAudio() {
+            if (isAudioStarted) return;
+            
+            // 1. 創立音訊上下文物件
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 2. 建立雙耳發振器 (Oscillator) 與左右聲道平移器 (Panner)
+            leftOsc = audioCtx.createOscillator();
+            rightOsc = audioCtx.createOscillator();
+            
+            const leftPanner = audioCtx.createStereoPanner();
+            const rightPanner = audioCtx.createStereoPanner();
+            
+            globalGain = audioCtx.createGain();
+
+            // 3. 設定波形與基本頻率基底（選用最沉浸安穩的低純音正弦波）
+            leftOsc.type = 'sine';
+            rightOsc.type = 'sine';
+            
+            // 預設為常態平靜：左耳 150Hz，右耳 160Hz（差值 10Hz = Alpha 波）
+            leftOsc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            rightOsc.frequency.setValueAtTime(160, audioCtx.currentTime);
+
+            // 4. 強制將發振器徹底分流至極致的左、右耳耳機聲道
+            leftPanner.pan.setValueAtTime(-1.0, audioCtx.currentTime);  // 全左
+            rightPanner.pan.setValueAtTime(1.0, audioCtx.currentTime);   // 全右
+
+            // 5. 漸強增益控制（避免聲音突然炸出來，柔和淡入）
+            globalGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+            globalGain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 3.0); // 3秒內柔和淡入至12%音量
+
+            // 6. 節點線路對接：Oscillator -> Panner -> Gain -> Master Out
+            leftOsc.connect(leftPanner);
+            leftPanner.connect(globalGain);
+            
+            rightOsc.connect(rightPanner);
+            rightPanner.connect(globalGain);
+            
+            globalGain.connect(audioCtx.destination);
+
+            // 開啟發振器發聲
+            leftOsc.start();
+            rightOsc.start();
+            isAudioStarted = true;
+        }
+
+        // 🧠 動態腦波頻率即時調變器（平滑漸變演算法，避免聲音點擊切換時發生突兀卡頓）
+        function transitionBrainwave(baseFreq, hz_diff) {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            
+            // 使用 exponentialRampToValueAtTime 在 1.5 秒內極致平滑地「滑音」切換到新腦波赫茲
+            leftOsc.frequency.exponentialRampToValueAtTime(baseFreq, now + 1.5);
+            rightOsc.frequency.exponentialRampToValueAtTime(baseFreq + hz_diff, now + 1.5);
+        }
+
+
+        // --- 3. 劇本動態與遮罩邏輯控制群 (完全遵循 Miro 規範) ---
         const dialogBox = document.getElementById('dialog-box');
         const dialogText = document.getElementById('dialog-text');
         const optionsContainer = document.getElementById('options-container');
-        
-        // 取得 DOM 遮罩元素
         const silverOverlay = document.getElementById('silver-mirror-overlay');
         const theaterMask = document.getElementById('theater-mask');
 
@@ -326,49 +376,52 @@
             dialogBox.classList.add('show');
         }
 
-        // 核心調度劇本系統 (完全遵循 Miro 規範)
         async function startFlow() {
-            // Output 1: 銀色鏡面下，白光泛過，文字浮現
             await delay(500);
             dialogBox.classList.add('show');
-            await delay(2000); // 2秒後淡出
+            await delay(2000);
             
-            // Output 2
             await updateDialogText("How's your day?");
             await delay(2000);
 
-            // Output 3
             await updateDialogText("Just take a breathe, and tell us ...");
             await delay(2000);
 
             showOption1();
         }
 
-        // Option 1
+        // Option 1: 選擇腦波
         async function showOption1() {
             dialogBox.classList.remove('show');
             await delay(1500);
             dialogText.innerText = "How do you feel right now?";
             optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="selectOption1(1.0, 0.3, 0.5)">1. I'm good 😊</div>
-                <div class="btn-option" onclick="selectOption1(0.5, 0.1, 0.3)">2. Just a bit tired ...</div>
-                <div class="btn-option" onclick="selectOption1(1.8, 0.8, 1.5)">3. Full of energy !!</div>
+                <div class="btn-option" onclick="handleSelectOption1(1.0, 0.3, 0.5, 150, 10)">1. I'm good 😊 (Alpha 10Hz)</div>
+                <div class="btn-option" onclick="handleSelectOption1(0.5, 0.1, 0.3, 140, 6)">2. Just a bit tired ... (Theta 6Hz)</div>
+                <div class="btn-option" onclick="handleSelectOption1(1.8, 0.8, 1.5, 160, 20)">3. Full of energy !! (Beta 20Hz)</div>
             `;
             optionsContainer.style.display = "flex";
             dialogBox.classList.add('show');
         }
 
-        function selectOption1(multiplier, hz6, hz10) {
+        function handleSelectOption1(multiplier, hz6, hz10, audioBase, audioDiff) {
+            // 💡 瀏覽器安全規範：使用者必須點擊任何按鈕，聲音才能合法播放
+            initBrainwaveAudio();
+            
             dialogBox.classList.add('fade-fast');
+            
+            // 1. 同步調變 Shader 速度
             shaderUniforms.u_freq_multiplier.value = multiplier;
             shaderUniforms.u_hz6_speed.value = hz6;
             shaderUniforms.u_hz10_speed.value = hz10;
+
+            // 2. 同步調變 Web Audio 耳機雙耳差值赫茲
+            transitionBrainwave(audioBase, audioDiff);
 
             setTimeout(async () => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 
-                // Output 4
                 dialogText.innerText = "What are you planning to do next ?";
                 dialogBox.classList.add('show');
                 await delay(2000);
@@ -377,7 +430,7 @@
             }, 300);
         }
 
-        // Option 2
+        // Option 2: 選擇色盤
         async function showOption2() {
             dialogBox.classList.remove('show');
             await delay(1500);
@@ -402,7 +455,7 @@
             }, 300);
         }
 
-        // Option 3
+        // Option 3: 選擇形狀
         async function showOption3() {
             dialogText.innerText = "Pick a symbol that guides you:";
             optionsContainer.innerHTML = `
@@ -425,26 +478,23 @@
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 
-                // 🎬 【關鍵翻轉點】：進入 Output 5: "A moment before the gift ..."
+                // 🎬 進入 Output 5: "A moment before the gift ..."
                 dialogText.innerText = "A moment before the gift ...";
                 
-                // 1. 銀色鏡面在此刻優雅淡出 (Fade out)
-                silverOverlay.style.opacity = '0';
-                // 2. 半透明黑色遮罩同時浮現 (Fade in 掛上遮罩)
-                theaterMask.style.opacity = '1';
-                // 3. UI 對話框字體和按鈕切換為暗色系發光模式 (提升高對比閱讀美感)
+                silverOverlay.style.opacity = '0'; // 銀色褪去
+                theaterMask.style.opacity = '1';   // 黑遮罩掛上
                 dialogBox.classList.add('dark-mode');
                 
                 dialogBox.classList.add('show');
-                await delay(3000); // 遵循 Miro 規定停留 3 秒
+                await delay(3000); // 停 3 秒
                 
                 // Output 6: "And here you are !"
                 await updateDialogText("And here you are !");
-                await delay(2000); // 顯示 2 秒
+                await delay(2000); // 停 2 秒
                 
-                // 🔓 【終極揭幕】：字離開的同時，拿掉黑色遮罩，光芒完全釋放！
-                dialogBox.classList.remove('show'); // 字離開
-                theaterMask.style.opacity = '0';    // 遮罩拿掉！
+                // 🔓 揭幕：字離開，遮罩完全拿掉，影音徹底爆發！
+                dialogBox.classList.remove('show');
+                theaterMask.style.opacity = '0';
             }, 300);
         }
 
