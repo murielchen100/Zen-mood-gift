@@ -9,9 +9,15 @@
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body, html { width: 100%; height: 100%; overflow: hidden; background-color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         #webgl-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #silver-mirror-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: linear-gradient(135deg, #cfd9df 0%, #e2ebf0 100%); box-shadow: inset 0 0 100px rgba(255,255,255,0.6); transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; overflow: hidden; }
-        #silver-mirror-overlay::after { content: ''; position: absolute; top: -50%; left: -60%; width: 30%; height: 200%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 100%); transform: rotate(30deg); animation: silverShine 4s cubic-bezier(0.3, 0.1, 0.3, 1) infinite; }
-        @keyframes silverShine { 0% { left: -60%; opacity: 0; } 10% { opacity: 1; } 40% { left: 140%; opacity: 1; } 50%, 100% { left: 140%; opacity: 0; } }
+        
+        /* 🛠️ 銀色鏡面遮罩：移除了原本刺眼的銳利閃光動畫，改由底層 Shader 來渲染湖面粼粼微光 */
+        #silver-mirror-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; 
+            background: transparent; 
+            transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1); 
+            pointer-events: none; 
+        }
+        
         #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
         .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
@@ -52,6 +58,7 @@
             uniform float u_wave_a;
             uniform float u_wave_b;
             uniform vec3 u_palette_bias;
+            uniform float u_silver_mode; // 控制前段柔和閃光與後段圖騰的切換
             varying vec2 vUv;
 
             vec3 palette( float t, vec3 bias ){ 
@@ -61,9 +68,18 @@
                 vec3 d = vec3(0.0, 0.1, 0.2) + bias; 
                 return a + b * cos( 6.283185 * (c * t + d) );
             }
+
+            // 🛠️ 隨機湖面波光演算法 (低飽和度、隨機微弱閃爍)
+            float lakeSparkle(vec2 uv, float time) {
+                float n = sin(uv.x * 40.0 + time * 1.2) * cos(uv.y * 40.0 - time * 0.9);
+                n += sin(uv.x * 85.0 - time * 2.1) * sin(uv.y * 60.0 + time * 1.7) * 0.5;
+                n += cos(uv.x * 120.0 + time * 3.3) * cos(uv.y * 150.0 - time * 2.8) * 0.25;
+                float sparkle = smoothstep(0.75, 0.98, n);
+                return sparkle * 0.08; // 壓低反射飽和度，不刺眼
+            }
         `;
 
-        // 1. 🌸 花朵片元著色器（🛠️ 已升級為 7 朵花，排隊間距最佳化，徹底連貫）
+        // 1. 🌸 花朵片元著色器（🛠️ 已全面校正軌跡判定，集體整隊換向，絕不撞車）
         const flowerFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0; 
             const float BASE_SPEED_INNER   = 1.5;  
@@ -72,24 +88,37 @@
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
                 uv_center.x *= iResolution.x / iResolution.y;
+
+                // 🛠️ 湖面隨機微弱閃光背景邏輯
+                float sparkle = lakeSparkle(vUv, iTime);
+                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
+
                 float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2;
-                vec3 backgroundColor = palette(bg_t, vec3(0.0));
+                vec3 finalGraphicBg = palette(bg_t, vec3(0.0));
 
                 vec3 rippleLayerColorSum = vec3(0.0);
                 float total_mix_weight = 0.0;
-                float totalLoop = 27.0; // 🛠️ 配合 7 朵花微調的循環總長度
+                float totalLoop = 24.0; 
 
-                for(int i = 0; i < 7; i++) { // 🛠️ 核心修改：擴充至 7 朵花
-                    float timeInterval = 2.0; // 🛠️ 縮短每朵進場間隔，讓銜接天衣無縫
-                    float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.3;
-                    float rippleTime = mod(iTime - timeOffset, totalLoop);
-                    if (rippleTime < 0.0) rippleTime += totalLoop;
+                // 🛠️ 核心軌跡控制修正：使用全域大時間軸決定所有花朵的流動方向
+                float globalDirectionTimer = mod(iTime, totalLoop);
+                bool moveLeftToRight = (globalDirectionTimer < 12.0);
+
+                for(int i = 0; i < 7; i++) { 
+                    float timeInterval = 1.6; 
+                    float timeOffset = float(i) * timeInterval;
                     
-                    vec2 startCorner; float stageTime; 
-                    if (rippleTime < 13.5) { startCorner = vec2(1.5, 0.7); stageTime = rippleTime; }
-                    else { startCorner = vec2(-1.5, 0.7); stageTime = rippleTime - 13.5; }
+                    // 每朵花順著方向軸算自己的內部階段進度
+                    float stageTime = mod(iTime - timeOffset, 12.0);
+                    if (stageTime < 0.0) stageTime += 12.0;
                     
-                    float speedMultiplier = 0.8 + float(i) * 0.01;
+                    vec2 startCorner;
+                    if (moveLeftToRight) { 
+                        startCorner = vec2(1.6, 0.7); 
+                    } else { 
+                        startCorner = vec2(-1.6, 0.7); 
+                    }
+                    
                     vec2 posOffset = vec2(float(i) * 0.02 * sign(startCorner.x), float(i) * 0.01); 
                     vec2 shiftedStart = startCorner + posOffset;
                     vec3 colorBias = vec3(float(i) * 0.11, float(i) * 0.06, float(i) * 0.04);
@@ -100,8 +129,7 @@
                     vec2 currentCenter = mix(shiftedStart, targetCorner, moveProgress);
                     
                     float centerDist = length(currentCenter);
-                    // 🛠️ 微調縮放系數（0.11），確保第 6、7 朵花的體積依然完美
-                    float flowerScale = (1.0 - float(i) * 0.11) * mix(1.0, 0.03, smoothstep(0.0, 1.5, centerDist));
+                    float flowerScale = (1.0 - float(i) * 0.1) * mix(1.0, 0.03, smoothstep(0.0, 1.5, centerDist));
                     
                     vec2 toCorner = uv_center - currentCenter;
                     float r = length(toCorner); float angle = atan(toCorner.y, toCorner.x); 
@@ -114,12 +142,16 @@
                     float alpha = sin(base_d * 1.5 - stageTime * mod_speed_b);
                     
                     float layer_glow = (0.2 / (abs(theta) + 0.2)) + (0.06 / (abs(alpha) + 0.06));
-                    layer_glow *= smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(11.5, 13.5, stageTime)) * exp(-base_d * 0.2);
+                    layer_glow *= smoothstep(0.0, 1.2, stageTime) * (1.0 - smoothstep(10.5, 12.0, stageTime)) * exp(-base_d * 0.2);
                     
                     rippleLayerColorSum += palette(iTime * 0.08 + float(i) * 0.25, colorBias) * layer_glow;
                     total_mix_weight += layer_glow;
                 }
-                gl_FragColor = vec4(mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.3)), 1.0);
+                
+                vec3 finalGraphicColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.3));
+                
+                // 🛠️ 依據選擇進度融合背景：前段顯示低飽和湖面閃光，點選完後完美切換
+                gl_FragColor = vec4(mix(baseSilverBg, finalGraphicColor, u_silver_mode), 1.0);
             }
         `;
 
@@ -134,13 +166,15 @@
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
                 uv_center.x *= iResolution.x / iResolution.y;
-                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
 
+                float sparkle = lakeSparkle(vUv, iTime);
+                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
+
+                vec3 finalGraphicBg = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; float totalLoop = 50.0; 
                 
                 float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
                 float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
-                
                 float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0) * 0.25;
                 float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0) * 0.25;
 
@@ -186,7 +220,8 @@
                     rippleLayerColorSum += (palette(iTime * 0.08 + float(i) * 0.25, vec3(float(i)*0.05)) * leaf_glow + palette(iTime * 0.08 + float(i) * 0.25 + 0.5, vec3(float(i)*0.05)) * ellipse_glow) * time_env * global_env;
                     total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
                 }
-                gl_FragColor = vec4(mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2)), 1.0);
+                vec3 finalGraphicColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
+                gl_FragColor = vec4(mix(baseSilverBg, finalGraphicColor, u_silver_mode), 1.0);
             }
         `;
 
@@ -200,8 +235,12 @@
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
                 uv_center.x *= iResolution.x / iResolution.y;
+
+                float sparkle = lakeSparkle(vUv, iTime);
+                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
+
                 float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2;
-                vec3 backgroundColor = palette(bg_t, vec3(0.0));
+                vec3 finalGraphicBg = palette(bg_t, vec3(0.0));
 
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; float totalLoop = 50.0; 
 
@@ -236,7 +275,8 @@
                     rippleLayerColorSum += palette(iTime * 0.05 + float(i) * 0.3, vec3(float(i) * 0.12, float(i) * 0.06, float(i) * 0.15)) * layer_glow;
                     total_mix_weight += layer_glow;
                 }
-                gl_FragColor = vec4(mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5)), 1.0);
+                vec3 finalGraphicColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5));
+                gl_FragColor = vec4(mix(baseSilverBg, finalGraphicColor, u_silver_mode), 1.0);
             }
         `;
     </script>
@@ -255,10 +295,11 @@
             iTime: { value: 0 },
             u_wave_a: { value: 6.0 },   
             u_wave_b: { value: 10.0 },  
-            u_palette_bias: { value: new THREE.Vector3(0.0, 0.1, 0.2) }
+            u_palette_bias: { value: new THREE.Vector3(0.0, 0.1, 0.2) },
+            u_silver_mode: { value: 0.0 } // 0.0 = 舒適隨機閃光背景, 1.0 = 切換到物理圖騰
         };
 
-        // 預設先編譯花朵
+        // 預設花朵著色器作為渲染載體
         let shaderMaterial = new THREE.ShaderMaterial({
             vertexShader: vertexShaderCode,
             fragmentShader: flowerFragmentCode,
@@ -377,7 +418,7 @@
         function selectOption3(type) {
             dialogBox.classList.add('fade-fast');
 
-            // 提早編譯切換，防露餡跑白花
+            // 🛠️ 提早切換對應圖騰，此時 `u_silver_mode` 仍為 0，所以畫面依然維持閃光，絕不露餡
             if(type === 'flower') {
                 mesh.material.fragmentShader = flowerFragmentCode;
             } else if(type === 'leaf') {
@@ -396,18 +437,20 @@
                 
                 dialogText.innerText = "A moment before the gift ...";
                 
-                silverOverlay.style.opacity = '0';
+                // 黑幕拉起
                 theaterMask.style.opacity = '1';
                 dialogBox.classList.add('dark-mode');
-                
                 dialogBox.classList.add('show');
                 await delay(3000); 
                 
+                // 🛠️ 在黑幕完美的保護下，悄悄將 `u_silver_mode` 轉為 1.0 (從閃光切換成物理波形)
+                shaderUniforms.u_silver_mode.value = 1.0;
+
                 await updateDialogText("And here you are !");
                 await delay(2000); 
                 
                 dialogBox.classList.remove('show');
-                theaterMask.style.opacity = '0'; 
+                theaterMask.style.opacity = '0'; // 黑幕退去，綻放完美的圖騰
             }, 300);
         }
 
