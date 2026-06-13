@@ -89,11 +89,11 @@
                 vec3 rippleLayerColorSum = vec3(0.0);
                 float total_mix_weight = 0.0;
                 
-                // 🛠️ 配合 7 朵花完美交替的對稱時間軸（前 35 秒右上，後 35 秒左上）
-                float totalLoop = 70.0; 
+                // 🛠️ 配合 5 朵花完美交替的對稱時間軸（前 20 秒右上，後 20 秒左上）
+                float totalLoop = 40.0; 
 
-                // 🔄 完全沿用原程式設計的發射排隊邏輯，擴充為 7 朵
-                for(int i = 0; i < 7; i++) {
+                // 🔄 完全沿用原程式設計的發射排隊邏輯，擴充為 5 朵
+                for(int i = 0; i < 5; i++) {
                     float timeInterval = 3.0;
                     float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.5;
                     
@@ -104,12 +104,12 @@
                     float stageTime; 
                     
                     // 🛠️ 對稱判定區間擴大至 35.0
-                    if (rippleTime < 35.0) {
+                    if (rippleTime < 20.0) {
                         startCorner = vec2(1.5, 0.7);
                         stageTime = rippleTime; 
                     } else {
                         startCorner = vec2(-1.5, 0.7);
-                        stageTime = rippleTime - 35.0; 
+                        stageTime = rippleTime - 20.0; 
                     }
                     
                     float speedMultiplier = 0.8 + float(i) * 0.01;
