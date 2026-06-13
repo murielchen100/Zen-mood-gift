@@ -101,7 +101,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION
+        // SHADER CODES SECTION (30秒大循環、解耦優化版)
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -137,7 +137,7 @@
             }
         `;
 
-        // 1. 🌸 花朵著色器 (完美狀態保護)
+        // 1. 🌸 花朵著色器
         const flowerFragmentCode = paletteSharedGLSL + `
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
@@ -203,7 +203,7 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器 (完美狀態保護)
+        // 2. 🌿 樹葉著色器
         const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION  = 12.0;  
             const float BASE_VEIN_SPEED_A   = 0.3;   
@@ -293,7 +293,7 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器 (🛠️ 修正：加入防空轉安全常數 + 後台編譯，根除點擊卡頓與黑白線條)
+        // 3. 🌊 海浪著色器 (已加入數學安全防護常數)
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0; const float BASE_SPEED_TWIST = 0.5; const float BASE_SPEED_WAVE1 = 2.0; const float BASE_SPEED_WAVE2 = 3.0; 
             void main() {
@@ -322,7 +322,7 @@
                     vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); float angle = atan(toCenter.y, toCenter.x);
                     float twistedAngle = angle + (1.5 / (r + 0.1)) * (-sign(startCorner.x)) - stageTime * mod_speed_twist;
                     
-                    // 🛠️ 關鍵修正：加入微小的安全浮點數（+ 0.00001），防止 abs(sin) 在第 0 秒算出來是絕對的 0.0 導致 pow 出現 NaN 硬體死角
+                    // 這裡加上了 + 0.00001 防止 0 秒硬體死角
                     float waveShape = pow(abs(sin(twistedAngle * 3.0)) + 0.00001, 0.5) * sign(sin(twistedAngle * 3.0)); 
                     
                     float base_d = (r / ((1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter))))) / (0.4 + 0.4 * waveShape);
@@ -487,35 +487,40 @@
             dialogBox.classList.add('fade-fast');
             selectedType = type;
 
-            if(type === 'flower') { mesh.material.fragmentShader = flowerFragmentCode; } 
-            else if(type === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
-            else if(type === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
-            
-            shaderUniforms.u_wave_a.value = selectedWaveA;
-            shaderUniforms.u_wave_b.value = selectedWaveB;
-            mesh.material.needsUpdate = true;
-
-            // 🛠️ 預編譯解決卡頓：在按下海浪選項的瞬間，逼迫 WebGL 提早編譯與清除初始畫面緩衝區
-            renderer.compile(scene, camera);
-            renderer.render(scene, camera);
-
+            // 🛠️ 視覺魔術核心：點擊的當下先不更換劇本，防止黑白畫面暴露凍結
             setTimeout(async () => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 
+                // 1. 這裡只改文字並讓劇院面罩「立刻拉上變黑」
                 dialogText.innerText = "A moment before the gift ...";
-                
                 theaterMask.style.opacity = '1';
                 dialogBox.classList.add('dark-mode');
                 dialogBox.classList.add('show');
                 
-                // 在這 3 秒黑畫面與文字轉場期間，海浪 Shader 已經在後台完美編譯就緒
-                await delay(3000); 
-                
-                // 再次強迫刷新渲染緩衝，徹底抹除任何可能殘留的 0 秒初始死角畫面
-                renderer.render(scene, camera);
+                // ⏳ 給布幕 0.5 秒的時間完全變黑遮蔽畫布
+                await delay(500); 
 
-                // [精準同步點] 撤銷遮罩、時間解凍起跑、開啟錄影
+                // ================================================================
+                // 2. 【安全暗度陳倉區】此時畫面已完全全黑，我們在黑布幕後悄悄更換劇本並引發編譯
+                // ================================================================
+                if(selectedType === 'flower') { mesh.material.fragmentShader = flowerFragmentCode; } 
+                else if(selectedType === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
+                else if(selectedType === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
+                
+                shaderUniforms.u_wave_a.value = selectedWaveA;
+                shaderUniforms.u_wave_b.value = selectedWaveB;
+                mesh.material.needsUpdate = true; // 觸發 GPU 進行後台編譯
+
+                // 逼迫 WebGL 在全黑狀態下先在後台消化掉編譯大卡頓
+                renderer.compile(scene, camera);
+                renderer.render(scene, camera);
+                // ================================================================
+
+                // ⏳ 補足原本約定好的 3 秒轉場沉澱時間（扣除前面遮罩全黑的 0.5 秒，再等 2.5 秒）
+                await delay(2500); 
+                
+                // [精準三位一體同步點] 解除遮罩、時間解凍起跑、高清錄影同時炸開！
                 shaderUniforms.u_silver_mode.value = 1.0; 
 
                 isShaderRunning = true; 
@@ -531,7 +536,7 @@
             }, 300);
         }
 
-        // --- 高清錄影核心邏輯 ---
+        // --- 高清錄影核心邏輯 (8Mbps) ---
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
@@ -582,7 +587,7 @@
             }, 1000);
         }
 
-        // 🛠️ 修正：Maybe next time 按鈕的 M 精準大寫化
+        // 🛠️ 最終雙按鈕 UI (Maybe next time 的 M 已完成大寫)
         function showDownloadButton() {
             optionsContainer.innerHTML = `
                 <div class="btn-option btn-download" onclick="handleDownloadAction()">💾 Download your vibe</div>
