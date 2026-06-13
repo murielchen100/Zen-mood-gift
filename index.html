@@ -114,6 +114,10 @@
             uniform float u_silver_mode; 
             varying vec2 vUv;
 
+            // 🎨 【純淨薰衣草紫色系】（頻率 1.0 同步，絕不爆螢光）
+            // 備用更換參考：
+            // 粉棕橘：a(0.48,0.40,0.35) b(0.38,0.32,0.28) c(1.,1.,1.) d(0.10,0.35,0.50)
+            // 藍綠色：a(0.35,0.48,0.50) b(0.30,0.40,0.42) c(1.,1.,1.) d(0.55,0.70,0.85)
             vec3 palette( float t, vec3 bias ){ 
                 vec3 a = vec3(0.45, 0.42, 0.50);   
                 vec3 b = vec3(0.40, 0.38, 0.45);   
@@ -198,6 +202,7 @@
                 vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
                 vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
                 
+                // ⚡【您的專屬色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
@@ -205,40 +210,13 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器（🛠️ 已完美改寫為 30秒 (15+15) 完美循環，調配無縫的時間軸遞增效果）
-        const leafFragmentCode = `
-            uniform vec2 iResolution;
-            uniform float iTime;
-            uniform float u_wave_a;
-            uniform float u_wave_b;
-            uniform vec3 u_palette_bias;
-            uniform float u_silver_mode; 
-            varying vec2 vUv;
-
+        // 2. 🌿 樹葉著色器
+        const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION  = 12.0;  
             const float BASE_VEIN_SPEED_A   = 0.3;   
             const float BASE_VEIN_SPEED_B   = 0.5;   
             const float BASE_ELLIP_SPEED_A  = 0.8;   
             const float BASE_ELLIP_SPEED_B  = 2.0;   
-
-            vec3 leafPalette( float t, vec3 bias ){ 
-                vec3 a = vec3(0.35, 0.48, 0.50);   
-                vec3 b = vec3(0.30, 0.40, 0.42);   
-                vec3 c = vec3(1.00, 1.00, 1.00);   
-                vec3 d = vec3(0.55, 0.70, 0.85) + bias; 
-                return a + b * cos( 6.283185 * (c * t + d) );
-            }
-
-            float lakeSparkle(vec2 uv, float time) {
-                vec2 p = (uv * 2.0 - 1.0);
-                p.x *= iResolution.x / (iResolution.y + 0.0001);
-                float sparkleA = sin(p.x * 2.2 + time * 0.8) * cos(p.y * 1.8 + time * 0.6);
-                float sparkleB = sin(p.x * 1.9 - time * 0.7 + 2.5) * sin(p.y * 2.4 + time * 0.9 + 4.0);
-                float sparkleC = cos(p.x * 3.5 + time * 1.2) * cos(p.y * 3.2 - time * 1.1);
-                float combined = sparkleA * 0.5 + sparkleB * 0.4 + sparkleC * 0.1;
-                float finalSparkle = smoothstep(0.4, 0.95, combined);
-                return finalSparkle * 0.035;
-            }
 
             void main() {
                 float waveFreq    = 1.2;    float waveAmp    = 0.12;
@@ -247,51 +225,36 @@
                 float ellipThick1 = 0.03;   float ellipThick2 = 0.015; 
                 float sharpen     = 3.5;    float colorDelay  = 0.5; 
 
-                vec2 uv_center = (vUv * 2.0 - 1.0);
+                vec2 uv_center = (vUv * 2.0 - 1.0); 
                 uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
+                float sparkle = lakeSparkle(vUv, iTime); vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
+                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
                 
-                float sparkle = lakeSparkle(vUv, iTime); 
-                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
-                
-                vec3 backgroundColor = leafPalette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
-
-                vec3 rippleLayerColorSum = vec3(0.0);
-                float total_mix_weight = 0.0;
-                
-                // 🛠️ 【時間核心改進】：大循環縮短為 30 秒 (15+15)
+                vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
                 float totalLoop = 30.0; 
+                
+                float globalTime = mod(iTime, totalLoop);
+                bool isFirstHalf = (globalTime < 15.0);
                 
                 float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
                 float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
                 float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0);
                 float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0);
-
-                float angle_radians = atan(5.0 / 9.0); 
-                float ext_cos = cos(angle_radians);
-                float ext_sin = sin(angle_radians);
+                float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
 
                 for(int i = 0; i < 4; i++) {
-                    // 🛠️ 【時間間隔校正】：配合 30 秒大循環，優化進場時間間隔，防止後端時間碎裂
-                    float timeOffset = float(i) * 1.8 + (float(i) * (float(i) - 1.0)) * 0.2;
+                    float timeOffset = float(i) * 4.2; 
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     
-                    vec2 startCorner, center1, center2;
-                    float stageTime; 
-                    
-                    // 🛠️ 【對稱分割點校正】：切換點精準定在 15.0 秒
-                    if (rippleTime < 15.0) {
-                        startCorner = vec2(1.5, 0.7);
-                        center1 = vec2(1.5, -1.3);
-                        center2 = vec2(-1.5, 1.3);
-                        stageTime = rippleTime; 
-                    } else {
-                        startCorner = vec2(-1.5, 0.7);
-                        center1 = vec2(-1.5, -1.3);
-                        center2 = vec2(1.5, 1.3);
-                        stageTime = rippleTime - 15.0; 
+                    vec2 startCorner, center1, center2; 
+                    if (isFirstHalf) { 
+                        startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3); 
+                    } else { 
+                        startCorner = vec2(-1.5, 0.7); center1 = vec2(-1.5, -1.3); center2 = vec2(1.5, 1.3); 
                     }
                     
+                    float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
                     float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / max(u_wave_a, 0.1));
                     vec2 targetCorner = -startCorner;
                     vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
@@ -304,7 +267,6 @@
                     vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
                     
                     leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
-                    
                     float v_arc = (leaf_uv.x - sqrt(max(abs(leaf_uv.y), 0.0001)) * arcCurv) / leafScale;
                     
                     float hz_a_time = stageTime * mod_vein_speed_a;
@@ -314,35 +276,34 @@
                                        0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.15) * 0.4);
                     leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
                     
-                    float current_sin = (rippleTime < 15.0) ? ext_sin : -ext_sin;
-                    float ellipse_glow = 0.0;
-                    vec2 centers[2]; centers[0] = center1; centers[1] = center2;
+                    float current_sin = isFirstHalf ? ext_sin : -ext_sin;
+                    float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
                     
                     for(int j = 0; j < 2; j++) {
-                        vec2 toC = uv_center - centers[j];
-                        vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
+                        vec2 toC = uv_center - centers[j]; vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
                         float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
                         
                         float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + ellipThick1), 1.8);
                         float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + ellipThick2), 1.8);
                         ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
                     }
-
+                    
                     float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
                     float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(10.0, 14.0, stageTime));
                     
-                    vec3 bias = vec3(float(i) * 0.05) + u_palette_bias;
-                    vec3 leafColor = leafPalette(iTime * 0.08 + float(i) * 0.25, bias);
-                    vec3 ellipColor = leafPalette(iTime * 0.08 + float(i) * 0.25 + colorDelay, bias);
+                    vec3 bias = vec3(float(i) * 0.05);
+                    vec3 leafColor = palette(iTime * 0.08 + float(i) * 0.25, bias);
+                    vec3 ellipColor = palette(iTime * 0.08 + float(i) * 0.25 + colorDelay, bias);
                     
                     rippleLayerColorSum += (leafColor * leaf_glow + ellipColor * ellipse_glow) * time_env * global_env;
                     total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
                 }
-
                 vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
+                
+                // ⚡【您的專屬色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
-
+                
                 gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
             }
         `;
@@ -364,9 +325,9 @@
                 float globalTime = mod(iTime, totalLoop);
                 bool isFirstHalf = (globalTime < 15.0);
 
-                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 20.0); 
-                float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 20.0); 
-                float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 40.0);
+                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 6.0); 
+                float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 6.0); 
+                float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 10.0);
 
                 for(int i = 0; i < 2; i++) {
                     float timeInterval = 7.5; float timeOffset = float(i) * timeInterval; float rippleTime = mod(iTime - timeOffset, totalLoop);
@@ -378,7 +339,7 @@
                     float stageTime = (rippleTime < 15.0) ? rippleTime : rippleTime - 15.0;
                     vec2 startPos = startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03);
                     vec2 targetPos = -startPos;
-                    vec2 currentCenter = mix(startPos, targetPos, smoothstep(0.0, BASE_MOVE_DURATION * (20.0 / max(u_wave_a, 0.1)), stageTime));
+                    vec2 currentCenter = mix(startPos, targetPos, smoothstep(0.0, BASE_MOVE_DURATION, stageTime));
                     
                     vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); 
                     float angle = atan(toCenter.y, toCenter.x + 0.0001); 
@@ -402,6 +363,7 @@
                 }
                 vec3 finalColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5));
                 
+                // ⚡【您的專屬色彩防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
@@ -433,7 +395,7 @@
 
         let shaderMaterial = new THREE.ShaderMaterial({
             vertexShader: vertexShaderCode,
-            fragmentShader: flowerFragmentCode, 
+            fragmentShader: flowerFragmentCode,
             uniforms: shaderUniforms,
             depthWrite: false, depthTest: false
         });
@@ -445,9 +407,9 @@
             shaderUniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        let isShaderRunning = true; 
+        let isShaderRunning = false; 
         const clock = new THREE.Clock();
-        clock.start();
+        clock.stop();
 
         function animate() {
             requestAnimationFrame(animate);
@@ -477,7 +439,7 @@
 
         async function updateDialogText(text) {
             dialogBox.classList.remove('show');
-            await delay(500);
+            await delay(1500);
             dialogText.innerText = text;
             dialogBox.classList.add('show');
         }
@@ -488,14 +450,14 @@
             await delay(2000); 
             await updateDialogText("How's your day?");
             await delay(2000); 
-            await updateDialogText("Just take a breath, and tell us ...");
+            await updateDialogText("Just take a breathe, and tell us ...");
             await delay(2000); 
             showOption1();
         }
 
         async function showOption1() {
             dialogBox.classList.remove('show');
-            await delay(500);
+            await delay(1500);
             dialogText.innerText = "How do you feel right now?";
             optionsContainer.innerHTML = `
                 <div class="btn-option" onclick="handleSelectOption1(10.0, 15.0)">1. calm and relaxed</div>
@@ -523,7 +485,7 @@
 
         async function showOption2() {
             dialogBox.classList.remove('show');
-            await delay(500);
+            await delay(1500);
             dialogText.innerText = "Choose a vibe for your next step:";
             optionsContainer.innerHTML = `
                 <div class="btn-option" onclick="selectOption2(0.0, 0.1, 0.2)">1. Just unwind and chill</div>
@@ -581,7 +543,9 @@
                 await delay(3000); 
                 
                 shaderUniforms.u_silver_mode.value = 1.0; 
+
                 isShaderRunning = true; 
+                clock.start(); 
 
                 startVideoRecording(); 
 
