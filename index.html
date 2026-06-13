@@ -53,18 +53,31 @@
         }
         @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
 
-        /* 高質感下載按鈕特殊樣式 */
+        /* 下載按鈕特殊樣式 */
         .btn-download {
             background: #27ae60 !important;
             color: white !important;
             border-color: #219653 !important;
             font-weight: bold;
-            margin-top: 15px;
             box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
         }
         .btn-download:hover {
             background: #219653 !important;
             transform: translateY(-2px);
+        }
+
+        /* 🛠️ 新增：Maybe next time 按鈕樣式 */
+        .btn-next-time {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            font-size: 0.9rem !important;
+            padding: 10px 20px !important;
+        }
+        .btn-next-time:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+            color: #fff !important;
+            border-color: rgba(255, 255, 255, 0.5) !important;
         }
     </style>
 </head>
@@ -88,7 +101,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION (已全數優化為 30秒大循環)
+        // SHADER CODES SECTION (30秒大循環版本)
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -124,7 +137,6 @@
             }
         `;
 
-        // 1. 🌸 花朵著色器
         const flowerFragmentCode = paletteSharedGLSL + `
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
@@ -184,7 +196,6 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器 (調整：大循環30秒、原速、密度稀疏)
         const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION  = 12.0;  
             const float BASE_VEIN_SPEED_A   = 0.3;   
@@ -235,7 +246,6 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器 (調整：大循環30秒、原速、密度稀疏)
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0; const float BASE_SPEED_TWIST = 0.5; const float BASE_SPEED_WAVE1 = 2.0; const float BASE_SPEED_WAVE2 = 3.0; 
             void main() {
@@ -273,7 +283,6 @@
         // THREE.JS & LOGIC SECTION
         // ==========================================
         const canvas = document.getElementById('webgl-canvas');
-        // 🌟 preserveDrawingBuffer 必須開啟，MediaRecorder 錄製 Canvas 畫面才不會變黑屏
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true }); 
         renderer.setSize(window.innerWidth, window.innerHeight);
         
@@ -304,7 +313,6 @@
             shaderUniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        // 核心時間軸鎖定：網頁開啟時時間軸停在 0，不往前跑
         let isShaderRunning = false; 
         const clock = new THREE.Clock();
         clock.stop();
@@ -432,26 +440,21 @@
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 
-                // 1. 顯示鋪陳文字。此時時間軸為 0 保持靜止。
                 dialogText.innerText = "A moment before the gift ...";
                 
                 theaterMask.style.opacity = '1';
                 dialogBox.classList.add('dark-mode');
                 dialogBox.classList.add('show');
                 
-                // 在黑暗中沉澱 3 秒鐘
                 await delay(3000); 
                 
-                // ================================================================
-                // 🌟 [三位一體精準同步點] 3秒倒數結束，布幕拉開與動畫第0.000秒及錄影「完全同步」！
-                // ================================================================
-                shaderUniforms.u_silver_mode.value = 1.0; // 撤掉銀色遮罩（解除封印）
+                // [三位一體精準同步點] 解除遮罩、動畫與高清錄影同時開跑
+                shaderUniforms.u_silver_mode.value = 1.0; 
 
-                isShaderRunning = true;                  // Shader 時間軸解凍，正式由 0 秒出發
+                isShaderRunning = true; 
                 clock.start(); 
 
-                startVideoRecording();                   // 錄影功能開跑，完美捕捉最初始的第一幀！
-                // ================================================================
+                startVideoRecording(); 
 
                 await updateDialogText("And here you are !");
                 await delay(2000); 
@@ -468,12 +471,11 @@
 
         function startVideoRecording() {
             recordedChunks = []; 
-            const stream = canvas.captureStream(30); // 30 fps
+            const stream = canvas.captureStream(30); 
             
-            // 🛠️ 升級高碼率參數（8 Mbps），大幅消滅毛邊與漸層色彩壓制出來的馬賽克
             const options = { 
                 mimeType: 'video/webm;codecs=vp9,opus',
-                videoBitsPerSecond: 8000000 
+                videoBitsPerSecond: 8000000 // 8 Mbps 高畫質規格
             };
             
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -489,12 +491,11 @@
             mediaRecorder.onstop = () => {
                 const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 videoURL = URL.createObjectURL(blob);
-                showDownloadButton(); // 錄製完畢，自動顯示下載 UI
+                showDownloadButton(); // 錄製完畢自動跳出最終按鈕
             };
 
             mediaRecorder.start();
             
-            // 右下角 UI 狀態盒浮現
             recordingUI.style.display = 'flex';
             recordingText.innerText = "Recording for 30 sec";
 
@@ -502,30 +503,31 @@
             const recordTimer = setInterval(() => {
                 secondsPassed++;
                 
-                // 照你的需求進行倒數文字更新
                 if (secondsPassed === 10) {
                     recordingText.innerText = "20 sec left...";
                 } else if (secondsPassed === 20) {
                     recordingText.innerText = "10 sec left...";
                 } else if (secondsPassed >= 30) {
                     clearInterval(recordTimer);
-                    mediaRecorder.stop(); // 🛑 精準滿 30 秒自動切斷錄影
+                    mediaRecorder.stop(); 
                     recordingUI.style.display = 'none'; 
                 }
             }, 1000);
         }
 
-        // 下載 UI 觸發
+        // 🛠️ 關鍵修正：改為符合需求的「雙按鈕」下載/關閉 UI
         function showDownloadButton() {
             optionsContainer.innerHTML = `
-                <div class="btn-option btn-download" onclick="downloadVideo()">💾 Download Your Vibe Video</div>
+                <div class="btn-option btn-download" onclick="handleDownloadAction()">💾 Download your vibe</div>
+                <div class="btn-option btn-next-time" onclick="handleCloseAction()">maybe next time</div>
             `;
             optionsContainer.style.display = "flex";
             dialogText.innerText = "Your personalized zen video is ready!";
             dialogBox.classList.add('show');
         }
 
-        function downloadVideo() {
+        // 🛠️ 新增：點擊下載後，觸發存檔並自動關閉框框
+        function handleDownloadAction() {
             if (videoURL) {
                 const a = document.createElement('a');
                 a.href = videoURL;
@@ -534,9 +536,22 @@
                 a.click();
                 document.body.removeChild(a);
             }
+            closeFinalDialog();
         }
 
-        // 啟動首頁流程
+        // 🛠️ 新增：點擊拒絕下載後，直接關閉框框
+        function handleCloseAction() {
+            closeFinalDialog();
+        }
+
+        // 🛠️ 新增：處理最終對話框與按鈕框完全淡出消失的共用函式
+        function closeFinalDialog() {
+            dialogBox.classList.remove('show'); // 讓對話框淡出隱形
+            setTimeout(() => {
+                optionsContainer.style.display = "none"; // 動畫結束後徹底拔除 DOM 顯示
+            }, 1500); // 配合 CSS transition 1.5s 時間
+        }
+
         startFlow();
     </script>
 </body>
