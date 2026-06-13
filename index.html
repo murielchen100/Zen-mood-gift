@@ -150,8 +150,8 @@
                 float total_mix_weight = 0.0;
                 float totalLoop = 30.0; 
 
-                for(int i = 0; i < 4; i++) {
-                    float timeInterval = 2.6;
+                for(int i = 0; i < 5; i++) {
+                    float timeInterval = 2.0;
                     float timeOffset = float(i) * timeInterval;
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
@@ -170,7 +170,7 @@
                     vec2 currentCenter = mix(shiftedStart, targetCorner, moveProgress);
                     float centerDist = length(currentCenter);
                     float instanceSize = 1.0 - float(i) * 0.1; 
-                    float flowerScale = instanceSize * mix(0.6, 0.02, smoothstep(0.0, 1.5, centerDist));
+                    float flowerScale = instanceSize * mix(0.8, 0.02, smoothstep(0.0, 1.5, centerDist));
                     vec2 toCorner = uv_center - currentCenter;
                     float r = length(toCorner); float angle = atan(toCorner.y, toCorner.x); 
                     float theta5 = angle * 2.5; float flower_base = abs(sin(theta5)); float notch = 1.0 - abs(cos(theta5));
