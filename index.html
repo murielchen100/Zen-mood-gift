@@ -150,8 +150,8 @@
                 float total_mix_weight = 0.0;
                 float totalLoop = 30.0; 
 
-                for(int i = 0; i < 5; i++) {
-                    float timeInterval = 2.0;
+                for(int i = 0; i < 7; i++) {
+                    float timeInterval = 1.4;
                     float timeOffset = float(i) * timeInterval;
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
@@ -214,7 +214,7 @@
                 float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0) * 0.25;
                 float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
 
-                for(int i = 0; i < 4; i++) {
+                for(int i = 0; i < 2; i++) {
                     float timeOffset = float(i) * 4.2; 
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
