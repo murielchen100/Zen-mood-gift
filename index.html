@@ -26,7 +26,7 @@
         .btn-option:hover { background: rgba(0, 0, 0, 0.1); border-color: #333; transform: translateY(-2px); }
         .cloud-box.dark-mode .btn-option:hover { background: rgba(255, 255, 255, 0.3); border-color: #fff; }
 
-        /* 🛠️ 新增：錄影狀態 UI（右下角） */
+        /* 右下角錄影 UI */
         #recording-ui {
             position: absolute;
             bottom: 24px;
@@ -44,7 +44,6 @@
             backdrop-filter: blur(4px);
             border: 1px solid rgba(255,255,255,0.1);
         }
-        /* 閃爍的小紅點 */
         #recording-dot {
             width: 8px;
             height: 8px;
@@ -54,7 +53,7 @@
         }
         @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
 
-        /* 🛠️ 新增：下載按鈕樣式 */
+        /* 下載按鈕樣式 */
         .btn-download {
             background: #27ae60 !important;
             color: white !important;
@@ -88,7 +87,6 @@
     </div>
 
     <script>
-        // --- Shader 程式碼（已維持你要求調整後的 30 秒大循環版本） ---
         const vertexShaderCode = `
             varying vec2 vUv;
             void main() { vUv = uv; gl_Position = vec4(position, 1.0); }
@@ -123,6 +121,7 @@
             }
         `;
 
+        // 1. 🌸 花朵著色器（維持你調整好的 30 秒版本）
         const flowerFragmentCode = paletteSharedGLSL + `
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0);
@@ -182,8 +181,9 @@
             }
         `;
 
+        // 2. 🌿 樹葉著色器（🛠️ 新修：調整為 30 秒大循環，保持原速且稀疏化）
         const leafFragmentCode = paletteSharedGLSL + `
-            const float BASE_MOVE_DURATION  = 5.0;  
+            const float BASE_MOVE_DURATION  = 12.0;  // 🌟 保持原速：不改動原本的 12 秒移動時長常數
             const float BASE_VEIN_SPEED_A   = 0.3;   
             const float BASE_VEIN_SPEED_B   = 0.5;   
             const float BASE_ELLIP_SPEED_A  = 0.8;   
@@ -193,22 +193,33 @@
                 vec2 uv_center = (vUv * 2.0 - 1.0); uv_center.x *= iResolution.x / iResolution.y;
                 float sparkle = lakeSparkle(vUv, iTime); vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
                 vec3 finalGraphicBg = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
-                vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; float totalLoop = 30.0; 
-                float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0) * 2.0;
-                float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0) * 2.0;
-                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0) * 0.5;
-                float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0) * 0.5;
+                vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
+                
+                // 🛠️ 1. 大循環改為 30.0 秒（前 15 秒右上發射，後 15 秒左上發射）
+                float totalLoop = 30.0; 
+                
+                float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
+                float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
+                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0) * 0.25;
+                float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0) * 0.25;
                 float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
 
                 for(int i = 0; i < 4; i++) {
-                    float timeOffset = float(i) * 1.5; float rippleTime = mod(iTime - timeOffset, totalLoop);
+                    // 🛠️ 2. 稀疏化設定：拉大葉片發射時間差（從原本的3秒加寬到 4.2秒），讓葉片錯開更遠
+                    float timeOffset = float(i) * 4.2; 
+                    
+                    float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     vec2 startCorner, center1, center2; float stageTime; 
+                    
                     if (rippleTime < 15.0) { startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3); stageTime = rippleTime; }
                     else { startCorner = vec2(-1.5, 0.7); center1 = vec2(-1.5, -1.3); center2 = vec2(1.5, 1.3); stageTime = rippleTime - 15.0; }
+                    
                     float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / u_wave_a);
                     vec2 currentCenter = mix(startCorner, -startCorner, smoothstep(0.0, activeMoveDuration, stageTime));
-                    float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 7.0, 0.0, 1.0) * 3.14159);
+                    
+                    // 🌟 保持原速：葉片生長函數的生命週期（14.0秒）不變，維持悠閒生長的體感
+                    float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
                     vec2 toCorner = uv_center - currentCenter; float moveAngle = atan(-startCorner.y - startCorner.y, -startCorner.x - startCorner.x);
                     vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
                     leaf_uv.y += sin(leaf_uv.x * 1.2) * 0.12 * leafScale; float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * 0.65) / leafScale;
@@ -221,7 +232,9 @@
                         float g1 = pow(0.03 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + 0.03), 2.0); float g2 = pow(0.015 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + 0.015), 2.0);
                         ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 1.225;
                     }
-                    float time_env = smoothstep(0.0, 0.5, stageTime) * (1.0 - smoothstep(5.0, 7.0, stageTime));
+                    
+                    // 🛠️ 3. 稀疏化設定：縮短光暈在畫面上的可見壽命（9.0秒開始淡出，11.5秒徹底消失），防止舊葉片跟新發射的堆疊
+                    float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(9.0, 11.5, stageTime));
                     float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
                     rippleLayerColorSum += (palette(iTime * 0.08 + float(i) * 0.25, vec3(float(i)*0.05)) * leaf_glow + palette(iTime * 0.08 + float(i) * 0.25 + 0.5, vec3(float(i)*0.05)) * ellipse_glow) * time_env * global_env;
                     total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
@@ -231,21 +244,37 @@
             }
         `;
 
+        // 3. 🌊 海浪著色器（🛠️ 新修：調整為 30 秒大循環，保持原速且稀疏化）
         const waveFragmentCode = paletteSharedGLSL + `
-            const float BASE_MOVE_DURATION = 5.0; const float BASE_SPEED_TWIST = 0.5; const float BASE_SPEED_WAVE1 = 2.0; const float BASE_SPEED_WAVE2 = 3.0; 
+            const float BASE_MOVE_DURATION = 12.0;  // 🌟 保持原速：維持原本 12 秒的悠緩波浪過渡時長
+            const float BASE_SPEED_TWIST   = 0.5;   
+            const float BASE_SPEED_WAVE1   = 2.0;   
+            const float BASE_SPEED_WAVE2   = 3.0;   
+            
             void main() {
                 vec2 uv_center = (vUv * 2.0 - 1.0); uv_center.x *= iResolution.x / iResolution.y;
                 float sparkle = lakeSparkle(vUv, iTime); vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
                 float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2; vec3 finalGraphicBg = palette(bg_t, vec3(0.0));
-                vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; float totalLoop = 30.0; 
-                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 20.0) * 2.0; float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 20.0) * 2.0; float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 40.0) * 2.0;
+                vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
+                
+                // 🛠️ 1. 大循環改為 30.0 秒（前 15 秒左下中心，後 15 秒右下中心）
+                float totalLoop = 30.0; 
+                
+                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a / 20.0); 
+                float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a / 20.0); 
+                float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b / 40.0);
 
                 for(int i = 0; i < 2; i++) {
-                    float timeInterval = 3.5; float timeOffset = float(i) * timeInterval; float rippleTime = mod(iTime - timeOffset, totalLoop);
+                    // 🛠️ 2. 稀疏化設定：將雙層海浪發射間隔拉大到 7.5 秒，保證兩條大浪在 15秒 的半週期內有極高空隙，不撞車
+                    float timeInterval = 7.5; 
+                    float timeOffset = float(i) * timeInterval;
+                    float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
                     vec2 startCorner; float stageTime; 
+                    
                     if (rippleTime < 15.0) { startCorner = vec2(-1.5, -0.7); stageTime = rippleTime; }
                     else { startCorner = vec2(1.5, -0.7); stageTime = rippleTime - 15.0; }
+                    
                     float progress = stageTime * (0.8 + float(i) * 0.01); 
                     vec2 currentCenter = mix(startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03), -(startCorner + vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03)), smoothstep(0.0, BASE_MOVE_DURATION * (20.0 / u_wave_a), stageTime));
                     vec2 toCenter = uv_center - currentCenter; float r = length(toCenter); float angle = atan(toCenter.y, toCenter.x);
@@ -253,7 +282,9 @@
                     float waveShape = pow(abs(sin(twistedAngle * 3.0)), 0.5) * sign(sin(twistedAngle * 3.0)); 
                     float base_d = (r / ((1.0 - float(i) * 0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter))))) / (0.4 + 0.4 * waveShape);
                     float wave_line1 = 0.1 / (abs(sin(base_d * 1.0 - stageTime * mod_speed_wave1)) + 0.1); float wave_line2 = 0.05 / (abs(cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2)) + 0.05);
-                    float layer_glow = (wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8) * smoothstep(0.0, 0.6, stageTime) * (1.0 - smoothstep(6.0, 8.5, stageTime)) * exp(-base_d * 0.15);
+                    
+                    // 🛠️ 3. 稀疏化設定：將海浪可見壽命修短（9.0秒開始淡出，12.0秒完全消失），給畫面留下更多平靜的湖面呼吸空間
+                    float layer_glow = (wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8) * smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(9.0, 12.0, stageTime)) * exp(-base_d * 0.15);
                     rippleLayerColorSum += palette(iTime * 0.05 + float(i) * 0.3, vec3(float(i) * 0.12, float(i) * 0.06, float(i) * 0.15)) * layer_glow;
                     total_mix_weight += layer_glow;
                 }
@@ -264,8 +295,9 @@
     </script>
 
     <script>
+        // --- 下方 JS 控制核心（完美整合 30 秒倒數計時錄影 + 下載功能） ---
         const canvas = document.getElementById('webgl-canvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true }); // 🛠️ 注意：錄影必須加上 preserveDrawingBuffer: true 防止黑畫面
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true }); 
         renderer.setSize(window.innerWidth, window.innerHeight);
         
         const scene = new THREE.Scene();
@@ -323,7 +355,7 @@
 
         let selectedWaveA = 6.0;
         let selectedWaveB = 10.0;
-        let selectedType = 'flower'; // 紀錄使用者選了什麼
+        let selectedType = 'flower'; 
 
         async function updateDialogText(text) {
             dialogBox.classList.remove('show');
@@ -414,6 +446,7 @@
             else if(type === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
             else if(type === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
             
+            // 🌟 這裡完美保留了腦波選項對應：將使用者選擇的波形參數注入 Uniform 變數
             shaderUniforms.u_wave_a.value = selectedWaveA;
             shaderUniforms.u_wave_b.value = selectedWaveB;
             mesh.material.needsUpdate = true;
@@ -424,11 +457,11 @@
                 
                 dialogText.innerText = "A moment before the gift ...";
                 
-                // 🌟 精準起跑：Shader 啟動
+                // 🌟 精準起跑：30秒循環時間軸正式從 0 秒出發
                 isShaderRunning = true;
                 clock.start(); 
 
-                // 🎥 關鍵功能：觸發 30 秒錄影與 UI 倒數
+                // 🎥 同步啟動 30 秒錄影與右下角 UI 狀態
                 startVideoRecording();
 
                 theaterMask.style.opacity = '1';
@@ -446,45 +479,34 @@
             }, 300);
         }
 
-        // --- 🛠️ 錄影與 UI 倒數核心邏輯 ---
+        // --- 錄影與 UI 倒數核心邏輯 ---
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
 
         function startVideoRecording() {
-            recordedChunks = []; // 清空之前的資料
+            recordedChunks = []; 
+            const stream = canvas.captureStream(30); // 30 fps
             
-            // 擷取 Canvas 串流 (設定 30 fps)
-            const stream = canvas.captureStream(30);
-            
-            // 設定支援的 WebM 格式
             const options = { mimeType: 'video/webm;codecs=vp9,opus' };
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
                 options.mimeType = 'video/webm;codecs=vp8';
             }
 
             mediaRecorder = new MediaRecorder(stream, options);
-
-            // 當有影像片段產生時，存入陣列
             mediaRecorder.ondataavailable = (e) => {
-                if (e.data && e.data.size > 0) {
-                    recordedChunks.push(e.data);
-                }
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
             };
 
-            // 當錄影「真正停止」時，將片段結合成一個可以下載的檔案
             mediaRecorder.onstop = () => {
                 const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 videoURL = URL.createObjectURL(blob);
-                
-                // 錄影停止後，UI 呈現下載按鈕
                 showDownloadButton();
             };
 
-            // 開始錄影
             mediaRecorder.start();
             
-            // 顯示右下角錄影 UI 並開始計時倒數
+            // 顯示右下角錄影 UI
             recordingUI.style.display = 'flex';
             recordingText.innerText = "Recording for 30 sec";
 
@@ -498,13 +520,12 @@
                     recordingText.innerText = "10 sec left...";
                 } else if (secondsPassed >= 30) {
                     clearInterval(recordTimer);
-                    mediaRecorder.stop(); // 🛑 精準滿 30 秒停止錄影
-                    recordingUI.style.display = 'none'; // 隱藏右下角 UI
+                    mediaRecorder.stop(); // 🛑 錄影滿 30 秒自動結束
+                    recordingUI.style.display = 'none'; 
                 }
             }, 1000);
         }
 
-        // 🛠️ 顯示下載按鈕
         function showDownloadButton() {
             optionsContainer.innerHTML = `
                 <div class="btn-option btn-download" onclick="downloadVideo()">💾 Download Your Vibe Video</div>
@@ -514,12 +535,10 @@
             dialogBox.classList.add('show');
         }
 
-        // 🛠️ 觸發下載檔案
         function downloadVideo() {
             if (videoURL) {
                 const a = document.createElement('a');
                 a.href = videoURL;
-                // 下載檔名，順便帶上使用者選的符號名稱
                 a.download = `zen-mood-gift-${selectedType}.webm`;
                 document.body.appendChild(a);
                 a.click();
