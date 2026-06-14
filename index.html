@@ -211,108 +211,108 @@
         `;
 
         // 2. 🌿 樹葉著色器（完全保留您的絲滑幾何與 25s 隱形傳送邏輯，僅套用指定色彩防線）
-const float BASE_MOVE_DURATION  = 12.0;  
-const float BASE_VEIN_SPEED_A   = 0.3;   
-const float BASE_VEIN_SPEED_B   = 0.5;   
-const float BASE_ELLIP_SPEED_A  = 0.8;   
-const float BASE_ELLIP_SPEED_B  = 2.0;   
+                const float BASE_MOVE_DURATION  = 12.0;  
+                const float BASE_VEIN_SPEED_A   = 0.3;   
+                const float BASE_VEIN_SPEED_B   = 0.5;   
+                const float BASE_ELLIP_SPEED_A  = 0.8;   
+                const float BASE_ELLIP_SPEED_B  = 2.0;   
 
-void main() {
-    // 100% 還原您最完美的微調參數
-    float waveFreq    = 1.2;    float waveAmp    = 0.12;
-    float arcCurv     = 0.8;    float veinThick  = 0.012;
-    float ellipScale  = 0.08;   float ellipRatioX = 30.0; float ellipRatioY = 40.0; 
-    float ellipThick1 = 0.03;   float ellipThick2 = 0.015; 
-    float sharpen     = 3.5;    float colorDelay  = 0.5; 
-
-    vec2 uv_center = (vUv * 2.0 - 1.0); 
-    uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
-    float sparkle = lakeSparkle(vUv, iTime); vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
-    vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
-    
-    vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
-    float totalLoop = 30.0; // 维持 30 秒總循環
-    
-    float globalTime = mod(iTime, totalLoop);
-    bool isFirstHalf = (globalTime < 15.0);
-    
-    float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
-    float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
-    float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0);
-    float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0);
-    float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
-
-    for(int i = 0; i < 4; i++) {
-        // 🛠️ 100% 還原您寫的、最絲滑的等差數列時間差！
-        float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5;
-        float rippleTime = mod(iTime - timeOffset, totalLoop);
-        if (rippleTime < 0.0) rippleTime += totalLoop;
-        
-        vec2 startCorner, center1, center2;
-        float stageTime; 
-        
-        // 🛠️ 100% 還原您的 25 秒單向切換判斷，不讓它在畫面中央抽搐
-        if (rippleTime < 25.0) {
-            startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3);
-            stageTime = rippleTime; 
-        } else {
-            startCorner = vec2(-1.5, 0.7); center1 = vec2(-1.5, -1.3); center2 = vec2(1.5, 1.3);
-            stageTime = rippleTime - 25.0; 
-        }
-        
-        float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / max(u_wave_a, 0.1));
-        vec2 targetCorner = -startCorner;
-        vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
-        
-        float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
-        leafScale = max(abs(leafScale), 0.001) * sign(leafScale); 
-
-        vec2 toCorner = uv_center - currentCenter;
-        float moveAngle = atan(targetCorner.y - startCorner.y, targetCorner.x - startCorner.x + 0.0001);
-        vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
-        
-        leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
-        float v_arc = (leaf_uv.x - sqrt(max(abs(leaf_uv.y), 0.0001)) * arcCurv) / leafScale;
-        
-        float hz_a_time = stageTime * mod_vein_speed_a;
-        float hz_b_time = stageTime * mod_vein_speed_b;
-        
-        float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - hz_a_time)) + 0.4) * 0.3 + 
-                           0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.15) * 0.4);
-        leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
-        
-        float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
-        float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
-        
-        for(int j = 0; j < 2; j++) {
-            vec2 toC = uv_center - centers[j]; vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
-            float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
+            void main() {
+                // 100% 還原您最完美的微調參數
+                float waveFreq    = 1.2;    float waveAmp    = 0.12;
+                float arcCurv     = 0.8;    float veinThick  = 0.012;
+                float ellipScale  = 0.08;   float ellipRatioX = 30.0; float ellipRatioY = 40.0; 
+                float ellipThick1 = 0.03;   float ellipThick2 = 0.015; 
+                float sharpen     = 3.5;    float colorDelay  = 0.5; 
             
-            float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + ellipThick1), 1.8);
-            float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + ellipThick2), 1.8);
-            ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
-        }
-        
-        float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
-        
-        // 🛠️ 100% 還原您寫的、最完美的 14 秒完全淡出緩衝！
-        float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(10.0, 14.0, stageTime));
-        
-        vec3 bias = vec3(float(i) * 0.05);
-        vec3 leafColor = palette(iTime * 0.08 + float(i) * 0.25, bias);
-        vec3 ellipColor = palette(iTime * 0.08 + float(i) * 0.25 + colorDelay, bias);
-        
-        rippleLayerColorSum += (leafColor * leaf_glow + ellipColor * ellipse_glow) * time_env * global_env;
-        total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
-    }
-    vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
-    
-    // ⚡【僅加入您指定的顏色濃淡、反螢光後期設定，其餘絕對不動】
-    finalColor = mix(vec3(0.5), finalColor, 1.2); 
-    finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
-    
-    gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
-}
+                vec2 uv_center = (vUv * 2.0 - 1.0); 
+                uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
+                float sparkle = lakeSparkle(vUv, iTime); vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
+                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
+                
+                vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
+                float totalLoop = 30.0; // 维持 30 秒總循環
+                
+                float globalTime = mod(iTime, totalLoop);
+                bool isFirstHalf = (globalTime < 15.0);
+                
+                float mod_vein_speed_a  = BASE_VEIN_SPEED_A  * (u_wave_a / 6.0);
+                float mod_vein_speed_b  = BASE_VEIN_SPEED_B  * (u_wave_b / 10.0);
+                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0);
+                float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0);
+                float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
+            
+                for(int i = 0; i < 4; i++) {
+                    // 🛠️ 100% 還原您寫的、最絲滑的等差數列時間差！
+                    float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5;
+                    float rippleTime = mod(iTime - timeOffset, totalLoop);
+                    if (rippleTime < 0.0) rippleTime += totalLoop;
+                    
+                    vec2 startCorner, center1, center2;
+                    float stageTime; 
+                    
+                    // 🛠️ 100% 還原您的 25 秒單向切換判斷，不讓它在畫面中央抽搐
+                    if (rippleTime < 25.0) {
+                        startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3);
+                        stageTime = rippleTime; 
+                    } else {
+                        startCorner = vec2(-1.5, 0.7); center1 = vec2(-1.5, -1.3); center2 = vec2(1.5, 1.3);
+                        stageTime = rippleTime - 25.0; 
+                    }
+                    
+                    float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / max(u_wave_a, 0.1));
+                    vec2 targetCorner = -startCorner;
+                    vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
+                    
+                    float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
+                    leafScale = max(abs(leafScale), 0.001) * sign(leafScale); 
+            
+                    vec2 toCorner = uv_center - currentCenter;
+                    float moveAngle = atan(targetCorner.y - startCorner.y, targetCorner.x - startCorner.x + 0.0001);
+                    vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
+                    
+                    leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
+                    float v_arc = (leaf_uv.x - sqrt(max(abs(leaf_uv.y), 0.0001)) * arcCurv) / leafScale;
+                    
+                    float hz_a_time = stageTime * mod_vein_speed_a;
+                    float hz_b_time = stageTime * mod_vein_speed_b;
+                    
+                    float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - hz_a_time)) + 0.4) * 0.3 + 
+                                       0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.15) * 0.4);
+                    leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
+                    
+                    float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
+                    float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
+                    
+                    for(int j = 0; j < 2; j++) {
+                        vec2 toC = uv_center - centers[j]; vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
+                        float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
+                        
+                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + ellipThick1), 1.8);
+                        float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + ellipThick2), 1.8);
+                        ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
+                    }
+                    
+                    float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
+                    
+                    // 🛠️ 100% 還原您寫的、最完美的 14 秒完全淡出緩衝！
+                    float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(10.0, 14.0, stageTime));
+                    
+                    vec3 bias = vec3(float(i) * 0.05);
+                    vec3 leafColor = palette(iTime * 0.08 + float(i) * 0.25, bias);
+                    vec3 ellipColor = palette(iTime * 0.08 + float(i) * 0.25 + colorDelay, bias);
+                    
+                    rippleLayerColorSum += (leafColor * leaf_glow + ellipColor * ellipse_glow) * time_env * global_env;
+                    total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
+                }
+                vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
+                
+                // ⚡【僅加入您指定的顏色濃淡、反螢光後期設定，其餘絕對不動】
+                finalColor = mix(vec3(0.5), finalColor, 1.2); 
+                finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
+                
+                gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
+            }
 
         
 
