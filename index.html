@@ -13,11 +13,11 @@
         #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
        
-        .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 2s ease, transform 2s ease, color 2s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
-        .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
+        .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
+        .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
         @keyframes floatingBump { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(0.5deg) scale(1.01); } 100% { transform: translateY(5px) rotate(-0.5deg); } }
         .cloud-box.show { opacity: 1; transform: translateY(0) scale(1); }
-        .cloud-box.fade-fast { transition: opacity 0.4s ease, transform 0.4s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
+        .cloud-box.fade-fast { transition: opacity 0.3s ease, transform 0.3s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
         h2 { font-size: 1.8rem; margin-bottom: 1.5rem; letter-spacing: 1px; font-weight: 400; }
         .options-list { display: flex; flex-direction: column; gap: 12px; min-width: 280px; }
        
@@ -55,7 +55,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES
+        // SHADER CODES (完整 u_mode 版本 + 30秒循環)
         // ==========================================
         const vertexShaderCode = `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`;
 
@@ -365,7 +365,7 @@
         `;
 
         // ==========================================
-        // THREE.JS 初始化
+        // THREE.JS & UI 控制
         // ==========================================
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -408,9 +408,6 @@
         }
         animate();
 
-        // ==========================================
-        // UI 流程 (文字與切換時間已還原)
-        // ==========================================
         const dialogBox = document.getElementById('dialog-box');
         const dialogText = document.getElementById('dialog-text');
         const optionsContainer = document.getElementById('options-container');
@@ -470,7 +467,6 @@
         }
 
         window.handlePaletteSelect = function(r, g, b) {
-            // 這裡可擴充 u_palette_bias，如果 shader 有用到
             dialogBox.classList.add('fade-fast');
             setTimeout(() => {
                 optionsContainer.style.display = "none";
