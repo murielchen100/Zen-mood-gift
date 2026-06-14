@@ -14,7 +14,7 @@
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
         
         .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
-        .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+        .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
         @keyframes floatingBump { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(0.5deg) scale(1.01); } 100% { transform: translateY(5px) rotate(-0.5deg); } }
         .cloud-box.show { opacity: 1; transform: translateY(0) scale(1); }
         .cloud-box.fade-fast { transition: opacity 0.3s ease, transform 0.3s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
@@ -228,14 +228,18 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器
+        // 2. 🌿 樹葉著色器（🛠️ 視覺調校：全面大降速 + 稀疏線條密度常數）
         const leafFragmentCode = paletteSharedGLSL + `
             void main() {
-                float waveFreq  = 1.2 * 0.6;   
+                // 🔒 【新增降速與稀疏常數防線】
+                float SPEED_BRAKE = 0.45;       // ✨ 全面降速：將整體內部流速強行砍半，呈現極致慢速
+                float DENSITY_X   = 0.50;       // ✨ 稀疏密度：進一步加大波紋間距，創造乾淨的禪意留白
+
+                float waveFreq  = (1.2 * 0.6) * DENSITY_X;   
                 float waveAmp    = 0.12;
                 float arcCurv   = 0.65;   float veinThick = 0.012;
                 
-                float ellipScale  = 0.08 * 0.6; 
+                float ellipScale  = (0.08 * 0.6) * DENSITY_X; 
                 float ellipRatioX = 30.0;
                 float ellipRatioY = 40.0; 
                 float ellipThick1 = 0.03;  
@@ -252,14 +256,15 @@
                 float sparkle = lakeSparkle(vUv, iTime); 
                 vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
                 
-                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + (scaledTime * 0.6) * 0.2, vec3(0.0));
+                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + ((scaledTime * SPEED_BRAKE) * 0.6) * 0.2, vec3(0.0));
 
                 vec3 rippleLayerColorSum = vec3(0.0);
                 float total_mix_weight = 0.0;
                 float totalLoop = 50.0; 
                 
-                float hz6  = (scaledTime * 0.6) * (u_wave_a / 20.0); 
-                float hz10 = (scaledTime * 0.6) * (u_wave_b / 20.0);
+                // 🛠️ 帶入 SPEED_BRAKE 全域降速常數
+                float hz6  = (scaledTime * SPEED_BRAKE * 0.6) * (u_wave_a / 20.0); 
+                float hz10 = (scaledTime * SPEED_BRAKE * 0.6) * (u_wave_b / 20.0);
                 float angle_radians = atan(5.0 / 9.0); 
                 float ext_cos = cos(angle_radians);
                 float ext_sin = sin(angle_radians);
@@ -297,8 +302,9 @@
                     leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
                     float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * arcCurv) / leafScale;
                     
-                    float leaf_glow = (0.6 / (abs(sin(v_arc * 0.6 - hz6)) + 0.4) * 0.3 + 
-                                       0.25 / (abs(sin(v_arc * 1.5 - hz10)) + 0.15) * 0.4);
+                    // 🛠️ 帶入稀疏係數 DENSITY_X 與 降速常數
+                    float leaf_glow = (0.6 / (abs(sin(v_arc * 0.6 * DENSITY_X - hz6)) + 0.4) * 0.3 + 
+                                       0.25 / (abs(sin(v_arc * 1.5 * DENSITY_X - hz10)) + 0.15) * 0.4);
                     leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
                     
                     float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
@@ -309,8 +315,9 @@
                         vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
                         float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
                         
-                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - (stageTime * 0.6) * 0.8)) + ellipThick1), 2.0);
-                        float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - (stageTime * 0.6) * 2.0)) + ellipThick2), 2.0);
+                        // 🛠️ 擴散動態同步套用 SPEED_BRAKE 全域降速
+                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - (stageTime * SPEED_BRAKE * 0.6) * 0.8)) + ellipThick1), 2.0);
+                        float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - (stageTime * SPEED_BRAKE * 0.6) * 2.0)) + ellipThick2), 2.0);
                         ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
                     }
 
@@ -318,8 +325,8 @@
                     float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(10.0, 14.0, stageTime));
                     vec3 bias = vec3(float(i)*0.05);
                     
-                    vec3 leafColor = palette((scaledTime * 0.6) * 0.08 + float(i) * 0.25, bias);
-                    vec3 ellipColor = palette((scaledTime * 0.6) * 0.08 + float(i) * 0.25 + colorDelay, bias);
+                    vec3 leafColor = palette(((scaledTime * SPEED_BRAKE) * 0.6) * 0.08 + float(i) * 0.25, bias);
+                    vec3 ellipColor = palette(((scaledTime * SPEED_BRAKE) * 0.6) * 0.08 + float(i) * 0.25 + colorDelay, bias);
                     rippleLayerColorSum += (leafColor * leaf_glow + ellipColor * ellipse_glow) * time_env * global_env;
                     total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
                 }
@@ -332,7 +339,7 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器
+        // 3. 🌊 海浪著色器（🛠️ 視覺調校：徹底解除曝光過度問題，拉回中間調細條層次）
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0; 
             const float BASE_SPEED_TWIST   = 0.5;   
@@ -409,8 +416,9 @@
                     float wave1 = sin(base_d * 1.0 - stageTime * mod_speed_wave1);
                     float wave2 = cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2);
                     
-                    float wave_line1 = 0.1 / (abs(wave1) + 0.1);
-                    float wave_line2 = 0.05 / (abs(wave2) + 0.05);
+                    // 🛠️ 在分母加上 0.12 的大緩衝阻尼，降噪防刺眼，防止線條在高赫茲下過度膨脹曝光
+                    float wave_line1 = 0.1 / (abs(wave1) + 0.12);
+                    float wave_line2 = 0.05 / (abs(wave2) + 0.12);
                     
                     float layer_glow = wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8;
                     
@@ -429,7 +437,8 @@
                 vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
                 vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
 
-                finalColor = mix(vec3(0.5), finalColor, 1.2); 
+                // 🛠️【海浪色彩防線降壓】：對比強度從 1.2 調回 1.02，把被強光吃掉的底層綠松石、冷海藍色澤原汁原味釋放出來
+                finalColor = mix(vec3(0.5), finalColor, 1.02); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
             }
@@ -464,7 +473,7 @@
             depthWrite: false, depthTest: false
         });
         
-        // 🛠️【拼字錯誤修正】：將原本錯誤的 mesh.material 改成正確的 shaderMaterial
+        // 🛠️【Typo 修正完成】
         const mesh = new THREE.Mesh(geometry, shaderMaterial);
         scene.add(mesh);
 
@@ -592,6 +601,7 @@
             else if(type === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
             else if(type === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
             
+            // 🛠️【前端參數放大器】
             if (selectedWaveA === 10.0 && selectedWaveB === 15.0) {
                 shaderUniforms.u_wave_a.value = selectedWaveA * 0.35;
                 shaderUniforms.u_wave_b.value = selectedWaveB * 0.35;
@@ -632,7 +642,7 @@
             }, 300);
         }
 
-        // --- 高清 60 幀 40Mbps 錄影邏輯 ---
+        // --- 高清 60 幀 40Mbps 影院級錄影核心邏輯 ---
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
