@@ -12,7 +12,7 @@
         #silver-mirror-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: transparent; transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
         #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
-       
+        
         .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
         .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
         @keyframes floatingBump { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(0.5deg) scale(1.01); } 100% { transform: translateY(5px) rotate(-0.5deg); } }
@@ -20,32 +20,62 @@
         .cloud-box.fade-fast { transition: opacity 0.3s ease, transform 0.3s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
         h2 { font-size: 1.8rem; margin-bottom: 1.5rem; letter-spacing: 1px; font-weight: 400; }
         .options-list { display: flex; flex-direction: column; gap: 12px; min-width: 280px; }
-       
+        
         .btn-option { background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.15); color: #333; padding: 14px 20px; border-radius: 14px; font-size: 1rem; cursor: pointer; transition: all 0.25s ease; text-align: center; }
         .cloud-box.dark-mode .btn-option { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.25); color: #fff; }
         .btn-option:hover { background: rgba(0, 0, 0, 0.1); border-color: #333; transform: translateY(-2px); }
         .cloud-box.dark-mode .btn-option:hover { background: rgba(255, 255, 255, 0.3); border-color: #fff; }
+
         #recording-ui {
-            position: absolute; bottom: 24px; right: 24px; z-index: 5;
-            background: rgba(0, 0, 0, 0.6); color: #fff; padding: 10px 18px;
-            border-radius: 30px; font-size: 0.9rem; letter-spacing: 0.5px;
-            display: none; align-items: center; gap: 8px;
-            backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1);
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            z-index: 5;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        #recording-dot { width: 8px; height: 8px; background-color: #ff4d4d; border-radius: 50%; animation: pulse 1s infinite alternate; }
+        #recording-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ff4d4d;
+            border-radius: 50%;
+            animation: pulse 1s infinite alternate;
+        }
         @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
-        .btn-download { background: #27ae60 !important; color: white !important; border-color: #219653 !important; font-weight: bold; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4); }
-        .btn-download:hover { background: #219653 !important; transform: translateY(-2px); }
+
+        .btn-download {
+            background: #27ae60 !important;
+            color: white !important;
+            border-color: #219653 !important;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+        }
+        .btn-download:hover {
+            background: #219653 !important;
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
+
     <canvas id="webgl-canvas"></canvas>
     <div id="silver-mirror-overlay"></div>
     <div id="theater-mask"></div>
+
     <div id="recording-ui">
         <div id="recording-dot"></div>
         <span id="recording-text">Recording for 30 sec</span>
     </div>
+
     <div id="ui-container">
         <div id="dialog-box" class="cloud-box">
             <h2 id="dialog-text">Hello there ...</h2>
@@ -55,22 +85,39 @@
 
     <script>
         // ==========================================
-        // SHADER CODES (完整 u_mode 版本 + 30秒循環)
+        // SHADER CODES SECTION (共用底層調色盤)
         // ==========================================
-        const vertexShaderCode = `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`;
+        const vertexShaderCode = `
+            varying vec2 vUv;
+            void main() { vUv = uv; gl_Position = vec4(position, 1.0); }
+        `;
 
         const paletteSharedGLSL = `
             uniform vec2 iResolution;
             uniform float iTime;
-            uniform float u_mode;
-            uniform float u_silver_mode;
+            uniform float u_wave_a;
+            uniform float u_wave_b;
+            uniform vec3 u_palette_bias;
+            uniform float u_silver_mode; 
             varying vec2 vUv;
-            vec3 palette(float t, vec3 bias) {
+
+            vec3 palette( float t, vec3 bias ){ 
                 vec3 a = vec3(0.5, 0.5, 0.5);
                 vec3 b = vec3(0.5, 0.5, 0.5);
                 vec3 c = vec3(1.0, 1.0, 1.0);
-                vec3 d = vec3(0.0, 0.1, 0.2) + bias;
-                return a + b * cos(6.283185 * (c * t + d));
+                vec3 d = vec3(0.0, 0.1, 0.2) + bias; 
+                return a + b * cos( 6.283185 * (c * t + d) );
+            }
+
+            float lakeSparkle(vec2 uv, float time) {
+                vec2 p = (uv * 2.0 - 1.0);
+                p.x *= iResolution.x / (iResolution.y + 0.0001);
+                float sparkleA = sin(p.x * 2.2 + time * 0.8) * cos(p.y * 1.8 + time * 0.6);
+                float sparkleB = sin(p.x * 1.9 - time * 0.7 + 2.5) * sin(p.y * 2.4 + time * 0.9 + 4.0);
+                float sparkleC = cos(p.x * 3.5 + time * 1.2) * cos(p.y * 3.2 - time * 1.1);
+                float combined = sparkleA * 0.5 + sparkleB * 0.4 + sparkleC * 0.1;
+                float finalSparkle = smoothstep(0.4, 0.95, combined);
+                return finalSparkle * 0.035;
             }
         `;
 
