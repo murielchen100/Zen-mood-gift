@@ -13,7 +13,7 @@
         #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
         
-        /* ☁️ 樸素、空靈、帶有浮動呼吸感的雲朵對話框 */
+        /breathing effect chatbox/
         .cloud-box { 
             position: absolute; 
             background: rgba(255, 255, 255, 0.12); 
@@ -103,9 +103,9 @@
     </div>
 
     <script>
-        // ==========================================
-        // 🌌 SHADER CODES SECTION (大一統純淨版)
-        // ==========================================
+       
+        // SHADER CODES SECTION
+        
         const vertexShaderCode = `
             varying vec2 vUv;
             void main() { vUv = uv; gl_Position = vec4(position, 1.0); }
@@ -125,20 +125,20 @@
             uniform float u_silver_mode;
             varying vec2 vUv;
 
-            // 🎛️ Option 2 獨立調色盤矩陣分配 (與 Miro 完美咬合且 1、3 已交換)
+            // Option 2  color palette zone
             vec3 palette(float t, vec3 bias) {
                 if (u_palette_choice < 1.5) {
-                    // 🎨 Palette 1 ➡️ 對接到 Stay active or go out (強力反差色配方)
+                    //  Palette 1  --> Stay active or go out (強力反差色配方)
                     vec3 a = vec3(0.5, 0.5, 0.5); vec3 b = vec3(0.65, 0.65, 0.65);
                     vec3 c = vec3(1.3, 1.0, 0.7); vec3 d = vec3(0.0, 0.33, 0.66) + bias + vec3(2.50);
                     return a + b * cos(6.283185 * (c * t + d));
                 } else if (u_palette_choice < 2.5) {
-                    // 🎨 Palette 2 ➡️ 對接到 Do something fun (🌟 向日葵金黃配方)
+                    //  Palette 2  --> Do something fun ( 向日葵金黃配方)
                     vec3 a = vec3(0.4, 0.4, 0.4); vec3 b = vec3(0.55, 0.55, 0.55);
                     vec3 c = vec3(1.0, 1.0, 0.5); vec3 d = vec3(0.8, 0.9, 0.3) + bias;
                     return a + b * cos(6.283185 * (c * t + d));
                 } else {
-                    // 🎨 Palette 3 ➡️ 對接到 Just unwind and chill (原廠平衡柔和藍綠)
+                    //  Palette 3  --> Just unwind and chill (平衡柔和藍綠)
                     vec3 a = vec3(0.5, 0.5, 0.5); vec3 b = vec3(0.5, 0.5, 0.5);
                     vec3 c = vec3(1.0, 1.0, 1.0); vec3 d = vec3(0.0, 0.1, 0.2) + bias;
                     return a + b * cos(6.283185 * (c * t + d));
@@ -146,7 +146,7 @@
             }
         `;
 
-        // 🌸 1. 花朵著色器
+        //  1. flower shader
         const flowerFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             void main() {
@@ -203,7 +203,7 @@
             }
         `;
 
-        // 🌿 2. 樹葉著色器 (🛠️ 100% 整合你剛剛實測最完美的範圍縮小與明暗卡死配方)
+        //  2. leave shader
         const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             void main() {
@@ -242,7 +242,7 @@
                     
                     vec2 currentCenter = mix(startCorner, -startCorner, smoothstep(0.0, BASE_MOVE_DURATION, stageTime));
                     
-                    // 🛠️ 幾何範圍收斂核心：原廠基礎上乘以 0.65，縮小葉子形體範圍
+                    // 原基礎上乘以 0.65，縮小葉子形體範圍
                     float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159) * 0.65;
                     leafScale = max(abs(leafScale), 0.001) * sign(leafScale);
                     
@@ -264,7 +264,7 @@
                         vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
                         
                         float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * (ellipScale * 1.3);
-                        // 🛠️ 橢圓速度精確放慢至 1/3
+                        // 橢圓速度精確放慢至 1/3
                         float slow_hz_fast = hz_fast / 3.0;
                         
                         float g1 = pow(0.015 / (abs(sin(d * 0.8 - slow_hz_fast * 1.6)) + 0.025), 1.8);
@@ -285,7 +285,7 @@
             }
         `;
 
-        // 🌊 3. 海浪著色器 (你最滿意之黃金完成品)
+        //  3. wave shader
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             const float BASE_SPEED_TWIST = 0.5;
@@ -352,9 +352,9 @@
             }
         `;
 
-        // ==========================================
+        
         // THREE.JS 引擎引腳初始化
-        // ==========================================
+    
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -367,12 +367,12 @@
             iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
             iTime: { value: 0 },
             u_mode: { value: 0.0 },
-            u_palette_choice: { value: 3.0 }, // 預設執行 Palette 3 (Just unwind and chill)
+            u_palette_choice: { value: 3.0 }, // acffecter Palette 3 (Just unwind and chill)
             u_wave_a: { value: 10.0 },
             u_wave_b: { value: 15.0 },
             u_space_multiplier_a: { value: 0.666 },
             u_space_multiplier_b: { value: 5.000 },
-            // 🔒 全局統一卡死在最完美的明暗護欄邊界！
+            // 全局統一卡死在最完美的明暗護欄邊界
             u_bg_min: { value: 0.01 },
             u_bg_max: { value: 0.60 },
             u_silver_mode: { value: 0.0 }
@@ -406,9 +406,9 @@
         }
         animate();
 
-        // ==========================================
-        // ☁️ 故事引導故事流 DOM 與核心邏輯控制
-        // ==========================================
+       
+        //  故事引導故事流 DOM 與核心邏輯控制
+        
         const dialogBox = document.getElementById('dialog-box');
         const dialogText = document.getElementById('dialog-text');
         const optionsContainer = document.getElementById('options-container');
@@ -439,7 +439,7 @@
             showOption1();
         }
 
-        // 🎛️ Option 1: 腦波心情頻率選擇區
+        //  Option 1: brain wave / mood
         async function showOption1() {
             dialogBox.classList.remove('show');
             await delay(1500);
@@ -469,7 +469,7 @@
             }, 300);
         }
 
-        // 🎛️ Option 2: 獨立調色盤選擇區 (1與3已依照要求完美對調)
+        //  Option 2: color palette connection 
         async function showOption2() {
             dialogBox.classList.remove('show');
             await delay(1500);
@@ -494,7 +494,7 @@
             }, 300);
         }
 
-        // 🎛️ Option 3: 圖騰幾何樣式選擇區
+        //  Option 3: symbol connect
         async function showOption3() {
             dialogText.innerText = "Pick a symbol that guides you:";
             optionsContainer.innerHTML = `
@@ -517,7 +517,7 @@
             }
             else if(type === 'leaf') { 
                 mesh.material.fragmentShader = leafFragmentCode; 
-                // 還原樹葉正宗原廠比例
+                // 還原樹葉正宗原比例
                 shaderUniforms.u_space_multiplier_a.value = 1.000;
                 shaderUniforms.u_space_multiplier_b.value = 1.000;
             }
@@ -546,7 +546,7 @@
                 isShaderRunning = true;
                 clock.start();
                 
-                // 📼 觸發 30 秒全自動無損高畫質錄影下載
+                //  activate media recorder for 30 sec
                 startVideoRecording();
                 await updateDialogText("And here you are !");
                 await delay(2000);
@@ -556,9 +556,9 @@
             }, 300);
         }
 
-        // ==========================================
-        // 📼 MediaRecorder 錄影與自動下載線路
-        // ==========================================
+        
+        //  route for media recorder
+        
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
@@ -622,7 +622,7 @@
             setTimeout(() => { optionsContainer.style.display = "none"; }, 1500);
         }
 
-        // 🎬 啟動網頁故事流
+        //  啟動網頁故事流
         startFlow();
     </script>
 </body>
