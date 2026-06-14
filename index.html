@@ -13,6 +13,7 @@
         #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
         
+        /* ☁️ 樸素、空靈、帶有浮動呼吸感的雲朵對話框 */
         .cloud-box { 
             position: absolute; 
             background: rgba(255, 255, 255, 0.12); 
@@ -114,7 +115,7 @@
             uniform vec2 iResolution;
             uniform float iTime;
             uniform float u_mode;           
-            uniform float u_palette_choice; // 1=Chill, 2=Fun, 3=Active
+            uniform float u_palette_choice; // 1=Active/GoOut, 2=Fun, 3=Chill
             uniform float u_wave_a;
             uniform float u_wave_b;
             uniform float u_space_multiplier_a;
@@ -124,34 +125,28 @@
             uniform float u_silver_mode;
             varying vec2 vUv;
 
-            // 🎛️ Option 2 獨立調色盤矩陣分配 (✨ 依照要求，1與3對調選項接線)
+            // 🎛️ Option 2 獨立調色盤矩陣分配 (與 Miro 完美咬合且 1、3 已交換)
             vec3 palette(float t, vec3 bias) {
                 if (u_palette_choice < 1.5) {
-                    // 🎨 Palette 1 ➡️ 修正：現在精確對接到 Stay active or go out (海浪強力反差配方)
-                    vec3 a = vec3(0.5, 0.5, 0.5);
-                    vec3 b = vec3(0.5, 0.5, 0.5);
-                    vec3 c = vec3(1.0, 1.0, 1.0);
-                    vec3 d = vec3(0.0, 0.1, 0.2) + bias + vec3(2.50);
+                    // 🎨 Palette 1 ➡️ 對接到 Stay active or go out (強力反差色配方)
+                    vec3 a = vec3(0.5, 0.5, 0.5); vec3 b = vec3(0.5, 0.5, 0.5);
+                    vec3 c = vec3(1.0, 1.0, 1.0); vec3 d = vec3(0.0, 0.1, 0.2) + bias + vec3(2.50);
                     return a + b * cos(6.283185 * (c * t + d));
                 } else if (u_palette_choice < 2.5) {
-                    // 🎨 Palette 2 ➡️ 保持不變：Do something fun (金黃活力配方)
-                    vec3 a = vec3(0.4, 0.4, 0.4);
-                    vec3 b = vec3(0.55, 0.55, 0.55);
-                    vec3 c = vec3(1.0, 1.0, 0.5);
-                    vec3 d = vec3(0.8, 0.9, 0.3) + bias;
+                    // 🎨 Palette 2 ➡️ 對接到 Do something fun (🌟 向日葵金黃配方)
+                    vec3 a = vec3(0.4, 0.4, 0.4); vec3 b = vec3(0.55, 0.55, 0.55);
+                    vec3 c = vec3(1.0, 1.0, 0.5); vec3 d = vec3(0.8, 0.9, 0.3) + bias;
                     return a + b * cos(6.283185 * (c * t + d));
                 } else {
-                    // 🎨 Palette 3 ➡️ 修正：現在精確對接到 Just unwind and chill (原廠柔和白銀藍綠色)
-                    vec3 a = vec3(0.5, 0.5, 0.5);
-                    vec3 b = vec3(0.5, 0.5, 0.5);
-                    vec3 c = vec3(1.0, 1.0, 1.0);
-                    vec3 d = vec3(0.0, 0.1, 0.2) + bias;
+                    // 🎨 Palette 3 ➡️ 對接到 Just unwind and chill (原廠平衡柔和藍綠)
+                    vec3 a = vec3(0.5, 0.5, 0.5); vec3 b = vec3(0.5, 0.5, 0.5);
+                    vec3 c = vec3(1.0, 1.0, 1.0); vec3 d = vec3(0.0, 0.1, 0.2) + bias;
                     return a + b * cos(6.283185 * (c * t + d));
                 }
             }
         `;
 
-        // 🌸 1. 花朵著色器 
+        // 🌸 1. 花朵著色器
         const flowerFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             void main() {
@@ -208,13 +203,13 @@
             }
         `;
 
-        // 🌿 2. 樹葉著色器 (🛠️ 已同步對齊海浪的明暗護欄與保底發光，且橢圓波速調至 1/3)
+        // 🌿 2. 樹葉著色器 (🛠️ 100% 整合你剛剛實測最完美的範圍縮小與明暗卡死配方)
         const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             void main() {
-                float waveFreq = 1.2 * 0.6; float waveAmp = 0.12;
-                float arcCurv = 0.65; float veinThick = 0.012;
-                float ellipScale = 0.08 * 0.6; float ellipRatioX = 30.0; float ellipRatioY = 40.0;
+                float waveFreq = 1.2; float waveAmp = 0.12; float arcCurv = 0.65; 
+                float veinThick = 0.005; float ellipScale = 0.08; 
+                float ellipRatioX = 30.0; float ellipRatioY = 40.0;
                 float ellipThick1 = 0.03; float ellipThick2 = 0.015; float sharpen = 3.5;
                 
                 float timeScale = 50.0 / 30.0;
@@ -227,7 +222,6 @@
                 float hz_fast = (scaledTime * 0.6) * (u_wave_b / 30.000);
                 
                 float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + (scaledTime * 0.6) * 0.2;
-                // 🛠️ 修正：樹葉背景色同步套用海浪的 [u_bg_min, u_bg_max] 護欄，徹底解決太淡的問題
                 vec3 backgroundColor = clamp(palette(bg_t, vec3(0.0)), u_bg_min, u_bg_max);
                 vec3 rippleLayerColorSum = vec3(0.0);
                 float total_mix_weight = 0.0;
@@ -247,7 +241,9 @@
                     float stageTime = (rippleTime < 25.0) ? rippleTime : rippleTime - 25.0;
                     
                     vec2 currentCenter = mix(startCorner, -startCorner, smoothstep(0.0, BASE_MOVE_DURATION, stageTime));
-                    float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
+                    
+                    // 🛠️ 幾何範圍收斂核心：原廠基礎上乘以 0.65，縮小葉子形體範圍
+                    float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159) * 0.65;
                     leafScale = max(abs(leafScale), 0.001) * sign(leafScale);
                     
                     vec2 toCorner = uv_center - currentCenter;
@@ -256,9 +252,9 @@
                     leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
                     float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * arcCurv) / leafScale;
                     
-                    // 🛠️ 微調發光分母 (對齊海浪的 +0.025 級別，增強幾何厚度)
-                    float leaf_glow = (0.6 / (abs(sin((v_arc * 0.6) * u_space_multiplier_a - hz_slow)) + 0.35) * 0.3 + 
-                                       0.25 / (abs(sin((v_arc * 1.5) * u_space_multiplier_a - hz_fast)) + 0.18) * 0.4);
+                    float leaf_glow = (0.01 / (abs(sin(v_arc * 0.6 - hz_slow)) + 0.025) * 0.3 + 
+                                       0.01 / (abs(sin(v_arc * 1.5 - hz_fast)) + 0.025) * 0.4);
+                                       
                     leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
                     
                     float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
@@ -266,12 +262,13 @@
                     for(int j = 0; j < 2; j++) {
                         vec2 toC = uv_center - centers[j];
                         vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
-                        float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
                         
-                        // 🛠️ 修正：將時間軸除以 3.0 (即乘以 0.3333)，強行將橢圓波紋速度放慢至 1/3！
+                        float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * (ellipScale * 1.3);
+                        // 🛠️ 橢圓速度精確放慢至 1/3
                         float slow_hz_fast = hz_fast / 3.0;
-                        float g1 = pow(ellipThick1 / (abs(sin((d * 0.8) * u_space_multiplier_b - slow_hz_fast * 1.6)) + ellipThick1), 2.0);
-                        float g2 = pow(ellipThick2 / (abs(sin((d * 2.5) * u_space_multiplier_b - slow_hz_fast * 4.0)) + ellipThick2), 2.0);
+                        
+                        float g1 = pow(0.015 / (abs(sin(d * 0.8 - slow_hz_fast * 1.6)) + 0.025), 1.8);
+                        float g2 = pow(0.010 / (abs(sin(d * 2.5 - slow_hz_fast * 4.0)) + 0.025), 1.8);
                         ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
                     }
                     float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
@@ -288,7 +285,7 @@
             }
         `;
 
-        // 🌊 3. 海浪著色器 (100% 採用你最滿意之黃金參數)
+        // 🌊 3. 海浪著色器 (你最滿意之黃金完成品)
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             const float BASE_SPEED_TWIST = 0.5;
@@ -356,7 +353,7 @@
         `;
 
         // ==========================================
-        // THREE.JS 引擎與引腳設定
+        // THREE.JS 引擎引腳初始化
         // ==========================================
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -370,13 +367,13 @@
             iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
             iTime: { value: 0 },
             u_mode: { value: 0.0 },
-            u_palette_choice: { value: 3.0 }, // 預設為 3 (Just unwind and chill 配方)
+            u_palette_choice: { value: 3.0 }, // 預設執行 Palette 3 (Just unwind and chill)
             u_wave_a: { value: 10.0 },
             u_wave_b: { value: 15.0 },
             u_space_multiplier_a: { value: 0.666 },
-            u_space_multiplier_b: { value: 5.0 },
-            // 🛠️ 預設將全局最暗/最亮界限，鎖定在你最愛的 [0.08, 0.6] 上，防止樹葉或海浪黑掉或過白
-            u_bg_min: { value: 0.08 },
+            u_space_multiplier_b: { value: 5.000 },
+            // 🔒 全局統一卡死在最完美的明暗護欄邊界！
+            u_bg_min: { value: 0.01 },
             u_bg_max: { value: 0.60 },
             u_silver_mode: { value: 0.0 }
         };
@@ -410,7 +407,7 @@
         animate();
 
         // ==========================================
-        // ☁️ 故事引導流程與選項控制 (100% 貼合 Miro 與你的修正)
+        // ☁️ 故事引導故事流 DOM 與核心邏輯控制
         // ==========================================
         const dialogBox = document.getElementById('dialog-box');
         const dialogText = document.getElementById('dialog-text');
@@ -442,7 +439,7 @@
             showOption1();
         }
 
-        // 🎛️ Option 1: 腦波心情頻率選擇
+        // 🎛️ Option 1: 腦波心情頻率選擇區
         async function showOption1() {
             dialogBox.classList.remove('show');
             await delay(1500);
@@ -472,7 +469,7 @@
             }, 300);
         }
 
-        // 🎛️ Option 2: 獨立客製化調色盤選擇 (✨ 1與3已依照要求完美交換對接)
+        // 🎛️ Option 2: 獨立調色盤選擇區 (1與3已依照要求完美對調)
         async function showOption2() {
             dialogBox.classList.remove('show');
             await delay(1500);
@@ -497,7 +494,7 @@
             }, 300);
         }
 
-        // 🎛️ Option 3: 圖騰幾何選擇
+        // 🎛️ Option 3: 圖騰幾何樣式選擇區
         async function showOption3() {
             dialogText.innerText = "Pick a symbol that guides you:";
             optionsContainer.innerHTML = `
@@ -520,13 +517,12 @@
             }
             else if(type === 'leaf') { 
                 mesh.material.fragmentShader = leafFragmentCode; 
-                // 🌿 樹葉同步寬鬆大氣留白比
-                shaderUniforms.u_space_multiplier_a.value = 0.700;
-                shaderUniforms.u_space_multiplier_b.value = 0.700;
+                // 還原樹葉正宗原廠比例
+                shaderUniforms.u_space_multiplier_a.value = 1.000;
+                shaderUniforms.u_space_multiplier_b.value = 1.000;
             }
             else if(type === 'wave') { 
                 mesh.material.fragmentShader = waveFragmentCode; 
-                // 🌊 海浪鎖定你最滿意的黃金配置
                 shaderUniforms.u_space_multiplier_a.value = 1.500;
                 shaderUniforms.u_space_multiplier_b.value = 15.00;
             }
@@ -550,6 +546,7 @@
                 isShaderRunning = true;
                 clock.start();
                 
+                // 📼 觸發 30 秒全自動無損高畫質錄影下載
                 startVideoRecording();
                 await updateDialogText("And here you are !");
                 await delay(2000);
@@ -560,7 +557,7 @@
         }
 
         // ==========================================
-        // 📼 錄影與媒體下載核心 
+        // 📼 MediaRecorder 錄影與自動下載線路
         // ==========================================
         let mediaRecorder;
         let recordedChunks = [];
@@ -625,6 +622,7 @@
             setTimeout(() => { optionsContainer.style.display = "none"; }, 1500);
         }
 
+        // 🎬 啟動網頁故事流
         startFlow();
     </script>
 </body>
