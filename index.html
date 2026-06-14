@@ -98,7 +98,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION (共用安全底層)
+        // SHADER CODES SECTION (共用調色盤與安全底層)
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -114,10 +114,7 @@
             uniform float u_silver_mode; 
             varying vec2 vUv;
 
-            // 🎨 【純淨薰衣草紫色系】（頻率 1.0 同步，絕不爆螢光）
-            // 備用更換參考：
-            // 粉棕橘：a(0.48,0.40,0.35) b(0.38,0.32,0.28) c(1.,1.,1.) d(0.10,0.35,0.50)
-            // 藍綠色：a(0.35,0.48,0.50) b(0.30,0.40,0.42) c(1.,1.,1.) d(0.55,0.70,0.85)
+            // 🎨 【純淨薰衣草紫色系】頻率 1.0 同步，消滅高飽和螢光色
             vec3 palette( float t, vec3 bias ){ 
                 vec3 a = vec3(0.45, 0.42, 0.50);   
                 vec3 b = vec3(0.40, 0.38, 0.45);   
@@ -202,7 +199,7 @@
                 vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
                 vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
                 
-                // ⚡【您的專屬色彩防線】
+                // ⚡【色彩專屬防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
@@ -210,28 +207,28 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器（完全保留您的絲滑幾何與 25s 隱形傳送邏輯，僅套用指定色彩防線）
-                const float BASE_MOVE_DURATION  = 12.0;  
-                const float BASE_VEIN_SPEED_A   = 0.3;   
-                const float BASE_VEIN_SPEED_B   = 0.5;   
-                const float BASE_ELLIP_SPEED_A  = 0.8;   
-                const float BASE_ELLIP_SPEED_B  = 2.0;   
+        // 2. 🌿 樹葉著色器（100% 採用您的原作幾何邏輯與時間差設定）
+        const leafFragmentCode = paletteSharedGLSL + `
+            const float BASE_MOVE_DURATION  = 12.0;  
+            const float BASE_VEIN_SPEED_A   = 0.3;   
+            const float BASE_VEIN_SPEED_B   = 0.5;   
+            const float BASE_ELLIP_SPEED_A  = 0.8;   
+            const float BASE_ELLIP_SPEED_B  = 2.0;   
 
             void main() {
-                // 100% 還原您最完美的微調參數
                 float waveFreq    = 1.2;    float waveAmp    = 0.12;
                 float arcCurv     = 0.8;    float veinThick  = 0.012;
                 float ellipScale  = 0.08;   float ellipRatioX = 30.0; float ellipRatioY = 40.0; 
                 float ellipThick1 = 0.03;   float ellipThick2 = 0.015; 
                 float sharpen     = 3.5;    float colorDelay  = 0.5; 
-            
+
                 vec2 uv_center = (vUv * 2.0 - 1.0); 
                 uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
                 float sparkle = lakeSparkle(vUv, iTime); vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
                 vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + iTime * 0.2, vec3(0.0));
                 
                 vec3 rippleLayerColorSum = vec3(0.0); float total_mix_weight = 0.0; 
-                float totalLoop = 30.0; // 维持 30 秒總循環
+                float totalLoop = 30.0; 
                 
                 float globalTime = mod(iTime, totalLoop);
                 bool isFirstHalf = (globalTime < 15.0);
@@ -241,9 +238,9 @@
                 float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (u_wave_a / 6.0);
                 float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (u_wave_b / 10.0);
                 float angle_radians = atan(5.0 / 9.0); float ext_cos = cos(angle_radians); float ext_sin = sin(angle_radians);
-            
+
                 for(int i = 0; i < 4; i++) {
-                    // 🛠️ 100% 還原您寫的、最絲滑的等差數列時間差！
+                    // 🛠️ 原作核心：等差時間差算式（絕對不改）
                     float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5;
                     float rippleTime = mod(iTime - timeOffset, totalLoop);
                     if (rippleTime < 0.0) rippleTime += totalLoop;
@@ -251,7 +248,7 @@
                     vec2 startCorner, center1, center2;
                     float stageTime; 
                     
-                    // 🛠️ 100% 還原您的 25 秒單向切換判斷，不讓它在畫面中央抽搐
+                    // 🛠️ 原作核心：25 秒單向隱形傳送分支（絕對不改）
                     if (rippleTime < 25.0) {
                         startCorner = vec2(1.5, 0.7); center1 = vec2(1.5, -1.3); center2 = vec2(-1.5, 1.3);
                         stageTime = rippleTime; 
@@ -266,7 +263,7 @@
                     
                     float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
                     leafScale = max(abs(leafScale), 0.001) * sign(leafScale); 
-            
+
                     vec2 toCorner = uv_center - currentCenter;
                     float moveAngle = atan(targetCorner.y - startCorner.y, targetCorner.x - startCorner.x + 0.0001);
                     vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
@@ -295,7 +292,7 @@
                     
                     float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
                     
-                    // 🛠️ 100% 還原您寫的、最完美的 14 秒完全淡出緩衝！
+                    // 🛠️ 原作核心：14 秒完美淡出透明算式（絕對不改）
                     float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(10.0, 14.0, stageTime));
                     
                     vec3 bias = vec3(float(i) * 0.05);
@@ -307,14 +304,13 @@
                 }
                 vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
                 
-                // ⚡【僅加入您指定的顏色濃淡、反螢光後期設定，其餘絕對不動】
+                // ⚡【色彩專屬防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
                 gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
             }
-
-        
+        `;
 
         // 3. 🌊 海浪著色器
         const waveFragmentCode = paletteSharedGLSL + `
@@ -371,7 +367,7 @@
                 }
                 vec3 finalColor = mix(finalGraphicBg, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.5));
                 
-                // ⚡【您的專屬色彩防線】
+                // ⚡【色彩專屬防線】
                 finalColor = mix(vec3(0.5), finalColor, 1.2); 
                 finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
                 
