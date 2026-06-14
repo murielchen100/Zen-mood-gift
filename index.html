@@ -14,7 +14,7 @@
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
         
         .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
-        .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+        .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
         @keyframes floatingBump { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(0.5deg) scale(1.01); } 100% { transform: translateY(5px) rotate(-0.5deg); } }
         .cloud-box.show { opacity: 1; transform: translateY(0) scale(1); }
         .cloud-box.fade-fast { transition: opacity 0.3s ease, transform 0.3s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
@@ -228,7 +228,7 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器
+        // 2. 🌿 樹葉著色器 (維持您的完美特調參數，完全不動)
         const leafFragmentCode = paletteSharedGLSL + `
             void main() {
                 float waveFreq  = 1.2 * 0.6;   
@@ -463,7 +463,7 @@
             uniforms: shaderUniforms,
             depthWrite: false, depthTest: false
         });
-        const mesh = new THREE.Mesh(geometry, shaderMaterial);
+        const mesh = new THREE.Mesh(geometry, mesh.material);
         scene.add(mesh);
 
         window.addEventListener('resize', () => {
@@ -523,7 +523,6 @@
             dialogBox.classList.remove('show');
             await delay(1500);
             dialogText.innerText = "How do you feel right now?";
-            // 🛠️【前端 UI 淨化】：移除原本呈現的頻率細節，保持極簡質感。數值規格依然留存於後台點擊事件中。
             optionsContainer.innerHTML = `
                 <div class="btn-option" onclick="handleSelectOption1(10.0, 15.0)">1. calm and relaxed</div>
                 <div class="btn-option" onclick="handleSelectOption1(6.0, 10.0)">2. a bit tired or stressed</div>
@@ -591,8 +590,21 @@
             else if(type === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; } 
             else if(type === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
             
-            shaderUniforms.u_wave_a.value = selectedWaveA;
-            shaderUniforms.u_wave_b.value = selectedWaveB;
+            // 🛠️【幾何動態放大器】：放大不同選項之間的物理流速差距，讓肉眼一秒看見顯著區別
+            if (selectedWaveA === 10.0 && selectedWaveB === 15.0) {
+                // 選項 1: Calm ➔ 幾何強行放慢 0.35 倍，進入極度平緩的禪意流動
+                shaderUniforms.u_wave_a.value = selectedWaveA * 0.35;
+                shaderUniforms.u_wave_b.value = selectedWaveB * 0.35;
+            } else if (selectedWaveA === 20.0 && selectedWaveB === 40.0) {
+                // 選項 3: Energized ➔ 幾何狂暴加速 4.5 倍，展現明顯急促的高頻波形
+                shaderUniforms.u_wave_a.value = selectedWaveA * 4.5;
+                shaderUniforms.u_wave_b.value = selectedWaveB * 4.5;
+            } else {
+                // 選項 2: Tired ➔ 100% 維持您最滿意的原始黃金基準速度
+                shaderUniforms.u_wave_a.value = selectedWaveA;
+                shaderUniforms.u_wave_b.value = selectedWaveB;
+            }
+            
             mesh.material.needsUpdate = true;
 
             setTimeout(async () => {
@@ -622,7 +634,7 @@
             }, 300);
         }
 
-        // --- 高清 60 幀 40Mbps 錄影核心邏輯 ---
+        // --- 高清 60 幀 40Mbps 錄影邏輯 ---
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
