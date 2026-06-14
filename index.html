@@ -128,9 +128,9 @@
             // 🎛️ Option 2 獨立調色盤矩陣分配 (與 Miro 完美咬合且 1、3 已交換)
             vec3 palette(float t, vec3 bias) {
                 if (u_palette_choice < 1.5) {
-                    // 🎨 Palette 1 ➡️ 對接到 Stay active or go out (強力反差色配方)
+                    // 🎨 Palette 1 ➡️ 對接到 Stay active or go out (原廠平衡柔和藍綠)
                     vec3 a = vec3(0.5, 0.5, 0.5); vec3 b = vec3(0.5, 0.5, 0.5);
-                    vec3 c = vec3(1.0, 1.0, 1.0); vec3 d = vec3(0.0, 0.1, 0.2) + bias + vec3(2.50);
+                    vec3 c = vec3(1.0, 1.0, 1.0); vec3 d = vec3(0.0, 0.1, 0.2) + bias;
                     return a + b * cos(6.283185 * (c * t + d));
                 } else if (u_palette_choice < 2.5) {
                     // 🎨 Palette 2 ➡️ 對接到 Do something fun (🌟 向日葵金黃配方)
@@ -138,9 +138,9 @@
                     vec3 c = vec3(1.0, 1.0, 0.5); vec3 d = vec3(0.8, 0.9, 0.3) + bias;
                     return a + b * cos(6.283185 * (c * t + d));
                 } else {
-                    // 🎨 Palette 3 ➡️ 對接到 Just unwind and chill (原廠平衡柔和藍綠)
+                    // 🎨 Palette 3 ➡️ 對接到 Just unwind and chill (強力反差色配方)
                     vec3 a = vec3(0.5, 0.5, 0.5); vec3 b = vec3(0.5, 0.5, 0.5);
-                    vec3 c = vec3(1.0, 1.0, 1.0); vec3 d = vec3(0.0, 0.1, 0.2) + bias;
+                    vec3 c = vec3(1.0, 1.0, 1.0); vec3 d = vec3(0.0, 0.1, 0.2) + bias + vec3(5.0);
                     return a + b * cos(6.283185 * (c * t + d));
                 }
             }
