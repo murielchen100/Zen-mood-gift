@@ -80,7 +80,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION (已升級為 u_mode 版本)
+        // SHADER CODES SECTION (色彩控制全面解放版)
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -93,16 +93,19 @@
             uniform float u_mode;           // 0=Calm, 1=Soothing, 2=Cheering
             uniform float u_wave_a;
             uniform float u_wave_b;
+            
+            // 解放色彩：全功能 Uniform 調色盤
+            uniform vec3 u_palette_a;
+            uniform vec3 u_palette_b;
+            uniform vec3 u_palette_c;
             uniform vec3 u_palette_bias;
+            
             uniform float u_silver_mode;
             varying vec2 vUv;
 
             vec3 palette( float t, vec3 bias ){
-                vec3 a = vec3(0.5, 0.5, 0.5);
-                vec3 b = vec3(0.5, 0.5, 0.5);
-                vec3 c = vec3(1.0, 1.0, 1.0);
-                vec3 d = vec3(0.0, 0.1, 0.2) + bias;
-                return a + b * cos( 6.283185 * (c * t + d) );
+                // 100% 透過外部打入的四維調色盤矩陣進行線性餘弦交織
+                return u_palette_a + u_palette_b * cos( 6.283185 * (u_palette_c * t + u_palette_bias + bias) );
             }
             float lakeSparkle(vec2 uv, float time) {
                 vec2 p = (uv * 2.0 - 1.0);
@@ -116,7 +119,7 @@
             }
         `;
 
-        // 1. 🌸 花朵著色器 (30秒循環 + u_mode)
+        // 1. 🌸 花朵著色器
         const flowerFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             const float BASE_SPEED_INNER = 1.5;
@@ -209,7 +212,7 @@
             }
         `;
 
-        // 2. 🌿 樹葉著色器（30秒循環 + u_mode）
+        // 2. 🌿 樹葉著色器 (已融合 1/5 橢圓調校小參數)
         const leafFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             const float BASE_VEIN_SPEED_A = 0.3;
@@ -219,6 +222,9 @@
             void main() {
                 float waveA = (u_mode < 0.5) ? 10.0 : (u_mode < 1.5) ? 6.0 : 20.0;
                 float waveB = (u_mode < 0.5) ? 15.0 : (u_mode < 1.5) ? 10.0 : 40.0;
+                
+                // 🔒 1/5 橢圓降速小參數穩定咬合
+                float ELLIP_SPEED_BRAKE = 0.20;
 
                 float DENSITY_BRAKE = 0.55;
                 float waveFreq = 1.2 * DENSITY_BRAKE; float waveAmp = 0.12;
@@ -241,11 +247,8 @@
                
                 float mod_vein_speed_a = BASE_VEIN_SPEED_A * (waveA / 6.0);
                 float mod_vein_speed_b = BASE_VEIN_SPEED_B * (waveB / 10.0);
-                
-                // 🛠️ 僅在此處加入降速調節小參數，將橢圓波前進速度縮減至 1/5
-                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (waveA / 6.0) * 0.2;
-                float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (waveB / 10.0) * 0.2;
-                
+                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (waveA / 6.0) * ELLIP_SPEED_BRAKE;
+                float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (waveB / 10.0) * ELLIP_SPEED_BRAKE;
                 float angle_radians = atan(5.0 / 9.0);
                 float ext_cos = cos(angle_radians);
                 float ext_sin = sin(angle_radians);
@@ -309,7 +312,7 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器 (30秒循環 + u_mode)
+        // 3. 🌊 海浪著色器
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             const float BASE_SPEED_TWIST = 0.5;
@@ -419,15 +422,24 @@
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
         const geometry = new THREE.PlaneGeometry(2, 2);
+        
+        // 🛠️ 擴充控制線路：補全調色盤全分量外部 Uniform 映射
         const shaderUniforms = {
             iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
             iTime: { value: 0 },
-            u_mode: { value: 0.0 },               // 心情模式
+            u_mode: { value: 0.0 },
             u_wave_a: { value: 10.0 },
             u_wave_b: { value: 15.0 },
+            
+            // 全球色彩矩陣基準初始化 (預設帶入加深版 Unwind 藍綠調)
+            u_palette_a: { value: new THREE.Vector3(0.2, 0.2, 0.2) },
+            u_palette_b: { value: new THREE.Vector3(0.5, 0.5, 0.5) },
+            u_palette_c: { value: new THREE.Vector3(1.0, 1.0, 1.0) },
             u_palette_bias: { value: new THREE.Vector3(0.0, 0.1, 0.2) },
+            
             u_silver_mode: { value: 0.0 }
         };
+
         let shaderMaterial = new THREE.ShaderMaterial({
             vertexShader: vertexShaderCode,
             fragmentShader: flowerFragmentCode,
@@ -455,7 +467,7 @@
         }
         animate();
 
-        // --- UI 控制流程 DOM --- (以下完全不變)
+        // --- UI 控制流程 DOM ---
         const dialogBox = document.getElementById('dialog-box');
         const dialogText = document.getElementById('dialog-text');
         const optionsContainer = document.getElementById('options-container');
@@ -499,7 +511,7 @@
 
         function handleSelectOption1(mode) {
             dialogBox.classList.add('fade-fast');
-            shaderUniforms.u_mode.value = mode;           // 設定心情模式
+            shaderUniforms.u_mode.value = mode;
             selectedWaveA = (mode === 0) ? 10.0 : (mode === 1) ? 6.0 : 20.0;
             selectedWaveB = (mode === 0) ? 15.0 : (mode === 1) ? 10.0 : 40.0;
             setTimeout(async () => {
@@ -517,22 +529,45 @@
             await delay(1500);
             dialogText.innerText = "Choose a vibe for your next step:";
             optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="selectOption2(0.0, 0.1, 0.2)">1. Just unwind and chill</div>
-                <div class="btn-option" onclick="selectOption2(0.3, 0.0, 0.4)">2. Do something fun</div>
-                <div class="btn-option" onclick="selectOption2(0.5, 0.5, 0.0)">3. Stay active or go out</div>
+                <div class="btn-option" onclick="selectOption2(1)">1. Just unwind and chill</div>
+                <div class="btn-option" onclick="selectOption2(2)">2. Do something fun</div>
+                <div class="btn-option" onclick="selectOption2(3)">3. Stay active or go out</div>
             `;
             optionsContainer.style.display = "flex";
             dialogBox.classList.add('show');
         }
-        function selectOption2(r_bias, g_bias, b_bias) {
+        
+        // 🛠️ 100% 映射綁定三大色彩大師配方到按鈕事件
+        function selectOption2(atmosphereIndex) {
             dialogBox.classList.add('fade-fast');
-            shaderUniforms.u_palette_bias.value.set(r_bias, g_bias, b_bias);
+            
+            if (atmosphereIndex === 1) { 
+                // 🌌 1. Just unwind and chill：加深版藍綠調
+                shaderUniforms.u_palette_a.value.set(0.2, 0.2, 0.2);
+                shaderUniforms.u_palette_b.value.set(0.5, 0.5, 0.5);
+                shaderUniforms.u_palette_c.value.set(1.0, 1.0, 1.0);
+                shaderUniforms.u_palette_bias.value.set(0.0, 0.1, 0.2);
+            } else if (atmosphereIndex === 2) { 
+                // 🎨 2. Do something fun：粉金橄欖綠蜜桃漸層
+                shaderUniforms.u_palette_a.value.set(0.4, 0.4, 0.4);
+                shaderUniforms.u_palette_b.value.set(0.55, 0.55, 0.55);
+                shaderUniforms.u_palette_c.value.set(1.0, 1.0, 0.5);
+                shaderUniforms.u_palette_bias.value.set(0.8, 0.9, 0.3);
+            } else if (atmosphereIndex === 3) { 
+                // ⚡ 3. Stay active or go out：高動態霓虹亮橘與賽博桃紅
+                shaderUniforms.u_palette_a.value.set(0.5, 0.5, 0.5);
+                shaderUniforms.u_palette_b.value.set(0.5, 0.5, 0.5);
+                shaderUniforms.u_palette_c.value.set(2.0, 1.0, 0.0);
+                shaderUniforms.u_palette_bias.value.set(0.5, 0.2, 0.25);
+            }
+
             setTimeout(() => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
                 showOption3();
             }, 300);
         }
+
         async function showOption3() {
             dialogText.innerText = "Pick a symbol that guides you:";
             optionsContainer.innerHTML = `
