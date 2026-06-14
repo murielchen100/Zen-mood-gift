@@ -13,11 +13,11 @@
         #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
         #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
        
-        .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
+        .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 2s ease, transform 2s ease, color 2s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
         .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
         @keyframes floatingBump { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(0.5deg) scale(1.01); } 100% { transform: translateY(5px) rotate(-0.5deg); } }
         .cloud-box.show { opacity: 1; transform: translateY(0) scale(1); }
-        .cloud-box.fade-fast { transition: opacity 0.3s ease, transform 0.3s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
+        .cloud-box.fade-fast { transition: opacity 0.4s ease, transform 0.4s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
         h2 { font-size: 1.8rem; margin-bottom: 1.5rem; letter-spacing: 1px; font-weight: 400; }
         .options-list { display: flex; flex-direction: column; gap: 12px; min-width: 280px; }
        
@@ -55,20 +55,16 @@
 
     <script>
         // ==========================================
-        // SHADER CODES (已全部更新為 u_mode 版本 + 30秒循環)
+        // SHADER CODES
         // ==========================================
-        const vertexShaderCode = `
-            varying vec2 vUv;
-            void main() { vUv = uv; gl_Position = vec4(position, 1.0); }
-        `;
+        const vertexShaderCode = `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`;
 
         const paletteSharedGLSL = `
             uniform vec2 iResolution;
             uniform float iTime;
-            uniform float u_mode;        // 0=Calm, 1=Soothing, 2=Cheering
+            uniform float u_mode;
             uniform float u_silver_mode;
             varying vec2 vUv;
-
             vec3 palette(float t, vec3 bias) {
                 vec3 a = vec3(0.5, 0.5, 0.5);
                 vec3 b = vec3(0.5, 0.5, 0.5);
@@ -78,13 +74,13 @@
             }
         `;
 
-        // 1. 🌸 櫻花 Shader
+        // 1. 🌸 花朵 Shader
         const flowerFragmentCode = paletteSharedGLSL + `
             void main() {
                 float u_wave_a, u_wave_b;
-                if (u_mode < 0.5)      { u_wave_a = 10.0; u_wave_b = 15.0; }
-                else if (u_mode < 1.5) { u_wave_a = 6.0;  u_wave_b = 10.0; }
-                else                   { u_wave_a = 20.0; u_wave_b = 40.0; }
+                if (u_mode < 0.5) { u_wave_a = 10.0; u_wave_b = 15.0; }
+                else if (u_mode < 1.5) { u_wave_a = 6.0; u_wave_b = 10.0; }
+                else { u_wave_a = 20.0; u_wave_b = 40.0; }
 
                 vec2 uv_center = (vUv * 2.0 - 1.0);
                 uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
@@ -172,9 +168,9 @@
         const leafFragmentCode = paletteSharedGLSL + `
             void main() {
                 float u_wave_a, u_wave_b;
-                if (u_mode < 0.5)      { u_wave_a = 10.0; u_wave_b = 15.0; }
-                else if (u_mode < 1.5) { u_wave_a = 6.0;  u_wave_b = 10.0; }
-                else                   { u_wave_a = 20.0; u_wave_b = 40.0; }
+                if (u_mode < 0.5) { u_wave_a = 10.0; u_wave_b = 15.0; }
+                else if (u_mode < 1.5) { u_wave_a = 6.0; u_wave_b = 10.0; }
+                else { u_wave_a = 20.0; u_wave_b = 40.0; }
 
                 float waveFreq = 1.2; float waveAmp = 0.12;
                 float arcCurv = 0.65; float veinThick = 0.012;
@@ -276,9 +272,9 @@
         const waveFragmentCode = paletteSharedGLSL + `
             void main() {
                 float u_wave_a, u_wave_b;
-                if (u_mode < 0.5)      { u_wave_a = 10.0; u_wave_b = 15.0; }
-                else if (u_mode < 1.5) { u_wave_a = 6.0;  u_wave_b = 10.0; }
-                else                   { u_wave_a = 20.0; u_wave_b = 40.0; }
+                if (u_mode < 0.5) { u_wave_a = 10.0; u_wave_b = 15.0; }
+                else if (u_mode < 1.5) { u_wave_a = 6.0; u_wave_b = 10.0; }
+                else { u_wave_a = 20.0; u_wave_b = 40.0; }
 
                 vec2 uv_center = (vUv * 2.0 - 1.0);
                 uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
@@ -412,7 +408,9 @@
         }
         animate();
 
-        // UI 元素
+        // ==========================================
+        // UI 流程 (文字與切換時間已還原)
+        // ==========================================
         const dialogBox = document.getElementById('dialog-box');
         const dialogText = document.getElementById('dialog-text');
         const optionsContainer = document.getElementById('options-container');
@@ -425,7 +423,7 @@
 
         async function updateDialogText(text) {
             dialogBox.classList.remove('show');
-            await delay(800);
+            await delay(2000);
             dialogText.innerText = text;
             dialogBox.classList.add('show');
         }
@@ -433,18 +431,18 @@
         async function startFlow() {
             await delay(500);
             dialogBox.classList.add('show');
-            await delay(1800);
+            await delay(2000);
             await updateDialogText("How's your day?");
-            await delay(1800);
+            await delay(2000);
             await updateDialogText("Just take a breathe, and tell us ...");
-            await delay(1500);
+            await delay(2000);
             showOption1();
         }
 
         function showOption1() {
-            dialogText.innerText = "How do you feel right now?";
+            dialogText.innerText = "1. I'm good ☺\n2. Just a bit tired ...\n3. Full of energy !!";
             optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="handleMoodSelect(0)">1. I'm good 😊 (Calm)</div>
+                <div class="btn-option" onclick="handleMoodSelect(0)">1. I'm good ☺</div>
                 <div class="btn-option" onclick="handleMoodSelect(1)">2. Just a bit tired ...</div>
                 <div class="btn-option" onclick="handleMoodSelect(2)">3. Full of energy !!</div>
             `;
@@ -457,7 +455,26 @@
             setTimeout(() => {
                 optionsContainer.style.display = "none";
                 dialogBox.classList.remove('fade-fast');
-                dialogText.innerText = "What are you planning to do next ?";
+                showOption2();
+            }, 400);
+        };
+
+        function showOption2() {
+            dialogText.innerText = "What are you planning to do next ?";
+            optionsContainer.innerHTML = `
+                <div class="btn-option" onclick="handlePaletteSelect(0.0,0.1,0.2)">1. Relax on my couch</div>
+                <div class="btn-option" onclick="handlePaletteSelect(0.3,0.0,0.4)">2. Having fun</div>
+                <div class="btn-option" onclick="handlePaletteSelect(0.5,0.5,0.0)">3. Party !</div>
+            `;
+            optionsContainer.style.display = "flex";
+        }
+
+        window.handlePaletteSelect = function(r, g, b) {
+            // 這裡可擴充 u_palette_bias，如果 shader 有用到
+            dialogBox.classList.add('fade-fast');
+            setTimeout(() => {
+                optionsContainer.style.display = "none";
+                dialogBox.classList.remove('fade-fast');
                 showOption3();
             }, 400);
         };
@@ -487,27 +504,27 @@
                 dialogBox.classList.add('dark-mode');
                 dialogBox.classList.add('show');
 
-                await delay(2800);
+                await delay(2000);
                 shaderUniforms.u_silver_mode.value = 1.0;
                 isShaderRunning = true;
                 clock.start();
                 startVideoRecording();
                 await updateDialogText("And here you are !");
-                await delay(1800);
+                await delay(2000);
                 dialogBox.classList.remove('show');
                 theaterMask.style.opacity = '0';
             }, 400);
         };
 
-        // 錄影功能（保持不變）
+        // 錄影功能
         let mediaRecorder, recordedChunks = [], videoURL;
         function startVideoRecording() {
             recordedChunks = [];
             const stream = canvas.captureStream(60);
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 40000000 });
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder = new MediaRecorder(stream, {mimeType: 'video/webm'});
+            mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
             mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const blob = new Blob(recordedChunks, {type: 'video/webm'});
                 videoURL = URL.createObjectURL(blob);
                 showDownloadButton();
             };
@@ -516,7 +533,11 @@
             let sec = 0;
             const timer = setInterval(() => {
                 sec++;
-                if (sec >= 30) { clearInterval(timer); mediaRecorder.stop(); recordingUI.style.display = 'none'; }
+                if (sec >= 30) {
+                    clearInterval(timer);
+                    mediaRecorder.stop();
+                    recordingUI.style.display = 'none';
+                }
             }, 1000);
         }
 
@@ -539,7 +560,6 @@
             }
         };
 
-        // 啟動
         startFlow();
     </script>
 </body>
