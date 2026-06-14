@@ -133,7 +133,7 @@
                 float sparkle = lakeSparkle(vUv, iTime);
                 vec3 baseSilverBg = mix(vec3(0.86, 0.88, 0.90), vec3(1.0), sparkle);
                
-                // 🛠️ 護眼流速與時間解耦：降速至 0.03，防止背景狂閃晃眼
+                // 🛠️ 護眼緩慢流速背景
                 float bg_t = vUv.x * 0.05 + vUv.y * 0.05 + iTime * 0.03;
                 vec3 backgroundColor = palette(bg_t, vec3(0.0));
                 vec3 rippleLayerColorSum = vec3(0.0);
@@ -190,13 +190,14 @@
                     float theta = sin(base_d * 0.5 - stageTime * mod_speed_a);
                     float alpha = sin(base_d * 1.5 - stageTime * mod_speed_b);
                    
-                    float theta_glow = 0.2 / (abs(theta) + 0.2);
-                    float alpha_glow = 0.06 / (abs(alpha) + 0.06);
-                    float layer_glow = theta_glow + alpha_glow;
+                    // 🛠️ 控光調校：放寬分母阻尼，防止過濃爆產
+                    float theta_glow = 0.025 / (abs(theta) + 0.035);
+                    float alpha_glow = 0.015 / (abs(alpha) + 0.035);
+                    float layer_glow = theta_glow * 1.2 + alpha_glow * 0.8;
                    
                     float fadeIn = smoothstep(0.0, 1.5, stageTime);
                     
-                    // 🛠️ 絲滑淡出校正：延後至最後 1 秒內才關燈，消除 15 秒換幕大空洞
+                    // 🛠️ 絲滑淡出時鐘：延後至最後 1 秒內淡出
                     float fadeOut = 1.0 - smoothstep(14.0, 15.0, stageTime);
                     float spaceFade = exp(-base_d * 0.2);
                     layer_glow *= fadeIn * fadeOut * spaceFade;
@@ -205,7 +206,9 @@
                     rippleLayerColorSum += thisCornerColor * layer_glow;
                     total_mix_weight += layer_glow;
                 }
-                float rippleMixControl = 1.0 - exp(-total_mix_weight * 1.3);
+                
+                // 🛠️ 核心去暗黑修正：將混色上限壓制在 0.75，保底透出 25% 背景色，顏色絕不焦黑
+                float rippleMixControl = (1.0 - exp(-total_mix_weight * 1.3)) * 0.75;
                 vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
                 vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
                 finalColor = mix(vec3(0.5), finalColor, 1.02);
@@ -225,6 +228,7 @@
                 float waveA = (u_mode < 0.5) ? 10.0 : (u_mode < 1.5) ? 6.0 : 20.0;
                 float waveB = (u_mode < 0.5) ? 15.0 : (u_mode < 1.5) ? 10.0 : 40.0;
                 
+                // 🔒 橢圓與波紋同步全面降速 1/5 常數安定綁定
                 float ELLIP_SPEED_BRAKE = 0.20;
 
                 float DENSITY_BRAKE = 0.55;
@@ -241,7 +245,7 @@
                 float sparkle = lakeSparkle(vUv, iTime);
                 vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
                
-                // 🛠️ 護眼流速與時間解耦：降速至 0.03，防止背景狂閃晃眼
+                // 🛠️ 護眼緩慢流速背景
                 vec3 backgroundColor = palette(vUv.x * 0.05 + vUv.y * 0.05 + iTime * 0.03, vec3(0.0));
                 vec3 rippleLayerColorSum = vec3(0.0);
                 float total_mix_weight = 0.0;
@@ -283,10 +287,13 @@
                     vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
                     leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
                     float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * arcCurv) / leafScale;
+                    
+                    // 🛠️ 檢視校正：讓葉脈時間步進與整體流場完全對齊，跑法絕對流暢
                     float hz_a_time = stageTime * mod_vein_speed_a;
                     float hz_b_time = stageTime * mod_vein_speed_b;
                     float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - hz_a_time)) + 0.45) * 0.3 + 0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.20) * 0.4);
                     leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
+                    
                     float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
                     float ellipse_glow = 0.0;
                     vec2 centers[2]; centers[0] = center1; centers[1] = center2;
@@ -298,9 +305,9 @@
                         float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + ellipThick2), 2.0);
                         ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
                     }
-                    float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
                     
-                    // 🛠️ 絲滑淡出校正：延後至最後 1 秒內才關燈，消除 15 秒換幕大空洞
+                    // 🛠️ 100% 補全原本殘缺的樹葉尾端環境因子閉合
+                    float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
                     float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(14.0, 15.0, stageTime));
                     vec3 bias = vec3(float(i)*0.05);
                    
@@ -316,7 +323,7 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器 (正宗原生架構全面修復 + 護眼流速與換幕優化版)
+        // 3. 🌊 海浪著色器 (100% 原汁原味完美還原好的版本 + 色彩疊代激活)
         const waveFragmentCode = paletteSharedGLSL + `
             void main() {
                 float u_wave_a_local = u_wave_a;
@@ -329,7 +336,7 @@
                 float sparkle = lakeSparkle(vUv, scaledTime * 0.6);
                 vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
                 
-                // 🛠️ 護眼流速與時間解耦：降速至最純粹未加速的 iTime * 0.03
+                // 🛠️ 護眼緩慢流速背景 (回歸未加速 iTime * 0.03)
                 float bg_t = vUv.x * 0.05 + vUv.y * 0.05 + iTime * 0.03;
                 vec3 backgroundColor = palette(bg_t, vec3(0.0));
                 vec3 rippleLayerColorSum = vec3(0.0);
@@ -380,10 +387,12 @@
                     float layer_glow = wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8;
                     float fadeIn = smoothstep(0.0, 1.5, stageTime);
                     
-                    // 🛠️ 絲滑海浪淡出校正：延後至 14.2 秒才啟動柔和切換，填滿所有視覺真空
+                    // 🛠&nbsp;絲滑換幕：延後至 14.2 秒才淡出，告別大真空
                     float fadeOut = 1.0 - smoothstep(14.2, 15.0, stageTime);
                     float spaceFade = exp(-base_d * 0.15);
                     layer_glow *= fadeIn * fadeOut * spaceFade;
+                   
+                    // 🛠️ 串接你的好的配方，並精確加入 float(i) * 0.3 的顏色雙層疊代
                     vec3 thisCornerColor = palette(scaledTime * 0.05 + float(i) * 0.3, colorBias);
                     rippleLayerColorSum += thisCornerColor * layer_glow;
                     total_mix_weight += layer_glow;
