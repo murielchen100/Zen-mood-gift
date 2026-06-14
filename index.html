@@ -3,664 +3,421 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zen Mood Gift - Personalized Interactive Experience</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>Zen Flow - Brainwave Shader Dashboard</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        #webgl-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #silver-mirror-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; background: transparent; transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
-        #theater-mask { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; background-color: rgba(0, 0, 0, 0.65); opacity: 0; transition: opacity 1.5s ease; pointer-events: none; }
-        #ui-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 4; display: flex; justify-content: center; align-items: center; pointer-events: none; }
-       
-        .cloud-box { position: absolute; background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 2.5rem 3.5rem; border-radius: 24px; color: #333; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.1); pointer-events: auto; opacity: 0; transform: translateY(20px) scale(0.95); transition: opacity 1.5s ease, transform 1.5s ease, color 1.5s ease; animation: floatingBump 6s ease-in-out infinite alternate; }
-        .cloud-box.dark-mode { color: #fff; background: rgba(0, 0, 0, 0.2); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
-        @keyframes floatingBump { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(0.5deg) scale(1.01); } 100% { transform: translateY(5px) rotate(-0.5deg); } }
-        .cloud-box.show { opacity: 1; transform: translateY(0) scale(1); }
-        .cloud-box.fade-fast { transition: opacity 0.3s ease, transform 0.3s ease !important; opacity: 0 !important; transform: scale(0.9) !important; }
-        h2 { font-size: 1.8rem; margin-bottom: 1.5rem; letter-spacing: 1px; font-weight: 400; }
-        .options-list { display: flex; flex-direction: column; gap: 12px; min-width: 280px; }
-       
-        .btn-option { background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.15); color: #333; padding: 14px 20px; border-radius: 14px; font-size: 1rem; cursor: pointer; transition: all 0.25s ease; text-align: center; }
-        .cloud-box.dark-mode .btn-option { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.25); color: #fff; }
-        .btn-option:hover { background: rgba(0, 0, 0, 0.1); border-color: #333; transform: translateY(-2px); }
-        .cloud-box.dark-mode .btn-option:hover { background: rgba(255, 255, 255, 0.3); border-color: #fff; }
-        #recording-ui {
-            position: absolute;
-            bottom: 24px;
-            right: 24px;
-            z-index: 5;
-            background: rgba(0, 0, 0, 0.6);
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0d1117;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             color: #fff;
-            padding: 10px 18px;
-            border-radius: 30px;
-            font-size: 0.9rem;
-            letter-spacing: 0.5px;
-            display: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* 🎛️ 控制面板 UI 樣式 */
+        #ui-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(20, 25, 35, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 800px;
+        }
+
+        .ui-section {
+            display: flex;
             align-items: center;
-            gap: 8px;
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255,255,255,0.1);
+            gap: 15px;
         }
-        #recording-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #ff4d4d;
-            border-radius: 50%;
-            animation: pulse 1s infinite alternate;
+
+        .ui-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #8b949e;
+            width: 100px;
+            flex-shrink: 0;
         }
-        @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
-        .btn-download {
-            background: #27ae60 !important;
-            color: white !important;
-            border-color: #219653 !important;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-grow: 1;
         }
-        .btn-download:hover {
-            background: #219653 !important;
-            transform: translateY(-2px);
+
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #c9d1d9;
+            padding: 10px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            flex: 1;
+            text-align: center;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        button.active {
+            background: #fff;
+            color: #0d1117;
+            border-color: #fff;
+            font-weight: 600;
+            box-shadow: 0 0 15px rgba(255,255,255,0.3);
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 </head>
 <body>
-    <canvas id="webgl-canvas"></canvas>
-    <div id="silver-mirror-overlay"></div>
-    <div id="theater-mask"></div>
-    <div id="recording-ui">
-        <div id="recording-dot"></div>
-        <span id="recording-text">Recording for 30 sec</span>
-    </div>
-    <div id="ui-container">
-        <div id="dialog-box" class="cloud-box">
-            <h2 id="dialog-text">Hello there ...</h2>
-            <div id="options-container" class="options-list" style="display: none;"></div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-panel">
+        <div class="ui-section">
+            <div class="ui-title">Option 1</div>
+            <div class="btn-group">
+                <button class="active" onclick="setOption1('calm')">Calm and Relaxed<br><small>Alpha 10Hz + Beta 15Hz</small></button>
+                <button onclick="setOption1('tired')">A Bit Tired / Stressed<br><small>Theta 6Hz + Alpha 10Hz</small></button>
+                <button onclick="setOption1('energized')">Energized / Motivated<br><small>Beta 20Hz + Gamma 40Hz</small></button>
+            </div>
+        </div>
+
+        <div class="ui-section">
+            <div class="ui-title">Option 2</div>
+            <div class="btn-group">
+                <button class="active" onclick="setOption2(1)">Just unwind and chill<br><small>Palette 1 (Silver Cyan)</small></button>
+                <button onclick="setOption2(2)">Do something fun<br><small>Palette 2 (Zen Gold)</small></button>
+                <button onclick="setOption2(3)">Stay active or go out<br><small>Palette 3 (High Contrast)</small></button>
+            </div>
+        </div>
+
+        <div class="ui-section">
+            <div class="ui-title">Option 3</div>
+            <div class="btn-group">
+                <button class="active" onclick="setOption3(1)">🌸 Sakura Pattern</button>
+                <button onclick="setOption3(2)">🌿 Zen Leaf Pattern</button>
+                <button onclick="setOption3(3)">🌊 Great Wave Pattern</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // ==========================================
-        // SHADER CODES SECTION 
-        // ==========================================
-        const vertexShaderCode = `
-            varying vec2 vUv;
-            void main() { 
-                vUv = uv; 
-                gl_Position = vec4(position, 1.0); 
-            }
-        `;
-
-        const paletteSharedGLSL = `
-            uniform vec2 iResolution;
-            uniform float iTime;
-            uniform float u_mode;           // 0=Calm, 1=Soothing, 2=Cheering
-            uniform float u_wave_a;
-            uniform float u_wave_b;
-            uniform vec3 u_palette_bias;
-            uniform float u_silver_mode;
-            varying vec2 vUv;
-
-            vec3 palette( float t, vec3 bias ){
-                vec3 a = vec3(0.5, 0.5, 0.5);
-                vec3 b = vec3(0.5, 0.5, 0.5);
-                vec3 c = vec3(1.0, 1.0, 1.0);
-                vec3 d = vec3(0.0, 0.1, 0.2) + bias;
-                return a + b * cos( 6.283185 * (c * t + d) );
-            }
-            float lakeSparkle(vec2 uv, float time) {
-                vec2 p = (uv * 2.0 - 1.0);
-                p.x *= iResolution.x / (iResolution.y + 0.0001);
-                float sparkleA = sin(p.x * 2.2 + time * 0.8) * cos(p.y * 1.8 + time * 0.6);
-                float sparkleB = sin(p.x * 1.9 - time * 0.7 + 2.5) * sin(p.y * 2.4 + time * 0.9 + 4.0);
-                float sparkleC = cos(p.x * 3.5 + time * 1.2) * cos(p.y * 3.2 - time * 1.1);
-                float combined = sparkleA * 0.5 + sparkleB * 0.4 + sparkleC * 0.1;
-                float finalSparkle = smoothstep(0.4, 0.95, combined);
-                return finalSparkle * 0.035;
-            }
-        `;
-
-        // 1. 🌸 花朵著色器 (維持鎖定漫遊 + 內部疊代催化)
-        const flowerFragmentCode = paletteSharedGLSL + `
-            const float BASE_MOVE_DURATION = 12.0;
-            const float BASE_SPEED_INNER = 1.5;
-            const float BASE_SPEED_OUTER = 3.5;
-            void main() {
-                float waveA = (u_mode < 0.5) ? 10.0 : (u_mode < 1.5) ? 6.0 : 20.0;
-                float waveB = (u_mode < 0.5) ? 15.0 : (u_mode < 1.5) ? 10.0 : 40.0;
-
-                vec2 uv_center = (vUv * 2.0 - 1.0);
-                uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
-               
-                float timeScale = 50.0 / 30.0;
-                float scaledTime = iTime * timeScale;
-
-                float sparkle = lakeSparkle(vUv, scaledTime);
-                vec3 baseSilverBg = mix(vec3(0.86, 0.88, 0.90), vec3(1.0), sparkle);
-               
-                float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + scaledTime * 0.2;
-                vec3 backgroundColor = palette(bg_t, vec3(0.0));
-                vec3 rippleLayerColorSum = vec3(0.0);
-                float total_mix_weight = 0.0;
-                float totalLoop = 50.0;
-
-                for(int i = 0; i < 4; i++) {
-                    float timeInterval = 3.0;
-                    float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.5;
-                   
-                    float rippleTime = mod(scaledTime - timeOffset, totalLoop);
-                    if (rippleTime < 0.0) rippleTime += totalLoop;
-                   
-                    vec2 startCorner;
-                    float stageTime;
-                    if (rippleTime < 25.0) {
-                        startCorner = vec2(1.5, 0.7);
-                        stageTime = rippleTime;
-                    } else {
-                        startCorner = vec2(-1.5, 0.7);
-                        stageTime = rippleTime - 25.0;
-                    }
-                   
-                    float speedMultiplier = 0.8 + float(i) * 0.01;
-                    vec2 posOffset = vec2(float(i) * 0.03 * sign(startCorner.x), float(i) * 0.015);
-                    vec2 shiftedStart = startCorner + posOffset;
-                    vec3 colorBias = vec3(float(i) * 0.15, float(i) * 0.08, float(i) * 0.05);
-                    vec2 targetCorner = -shiftedStart;
-                   
-                    float activeMoveDuration = BASE_MOVE_DURATION;
-                    float moveProgress = smoothstep(0.0, activeMoveDuration, stageTime);
-                    vec2 currentCenter = mix(shiftedStart, targetCorner, moveProgress);
-                   
-                    float centerDist = length(currentCenter);
-                    float instanceSize = 1.0 - float(i) * 0.2;
-                    float flowerScale = instanceSize * mix(1.0, 0.03, smoothstep(0.0, 1.5, centerDist));
-                   
-                    vec2 toCorner = uv_center - currentCenter;
-                    float r = length(toCorner);
-                    float angle = atan(toCorner.y, toCorner.x + 0.0001);
-                   
-                    float theta5 = angle * 2.5;
-                    float flower_base = abs(sin(theta5));
-                    float notch = 1.0 - abs(cos(theta5));
-                    float sakuraShape = flower_base * 0.7 + notch * 0.25;
-                   
-                    float base_d = (r / flowerScale) / (0.3 + 0.5 * sakuraShape);
-                   
-                    float mod_speed_a = BASE_SPEED_INNER * (waveA / 6.0);
-                    float mod_speed_b = BASE_SPEED_OUTER * (waveB / 10.0);
-                   
-                    float iterationFactor = 1.0 + float(i) * 0.5;
-                    float theta = sin(base_d * 0.5 - stageTime * mod_speed_a * iterationFactor);
-                    float alpha = sin(base_d * 1.5 - stageTime * mod_speed_b * iterationFactor);
-                   
-                    float theta_glow = 0.2 / (abs(theta) + 0.2);
-                    float alpha_glow = 0.06 / (abs(alpha) + 0.06);
-                    float layer_glow = theta_glow + alpha_glow;
-                   
-                    float fadeIn = smoothstep(0.0, 1.5, stageTime);
-                    float fadeOut = 1.0 - smoothstep(12.0, 17.0, stageTime);
-                    float spaceFade = exp(-base_d * 0.2);
-                    layer_glow *= fadeIn * fadeOut * spaceFade;
-                   
-                    vec3 thisCornerColor = palette(scaledTime * 0.08 + float(i) * 0.25, colorBias);
-                    rippleLayerColorSum += thisCornerColor * layer_glow;
-                    total_mix_weight += layer_glow;
-                }
-                float rippleMixControl = 1.0 - exp(-total_mix_weight * 1.3);
-                vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
-                vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
-                finalColor = mix(vec3(0.5), finalColor, 1.02);
-                finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
-                gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
-            }
-        `;
-
-        // 2. 🌿 樹葉著色器 (✨ 完美鎖定漫遊與尺寸，能量導入內部葉脈橢圓疊代)
-        const leafFragmentCode = paletteSharedGLSL + `
-            const float BASE_MOVE_DURATION = 12.0;
-            const float BASE_VEIN_SPEED_A = 0.3;
-            const float BASE_VEIN_SPEED_B = 0.5;
-            const float BASE_ELLIP_SPEED_A = 0.8;
-            const float BASE_ELLIP_SPEED_B = 2.0;
-            void main() {
-                float waveA = (u_mode < 0.5) ? 10.0 : (u_mode < 1.5) ? 6.0 : 20.0;
-                float waveB = (u_mode < 0.5) ? 15.0 : (u_mode < 1.5) ? 10.0 : 40.0;
-
-                float DENSITY_BRAKE = 0.55;
-                float waveFreq = 1.2 * DENSITY_BRAKE; float waveAmp = 0.12;
-                float arcCurv = 0.65; float veinThick = 0.012;
-                float ellipScale = 0.08 * DENSITY_BRAKE; float ellipRatioX = 30.0; float ellipRatioY = 40.0;
-                float ellipThick1 = 0.03; float ellipThick2 = 0.015;
-                float sharpen = 3.5; float colorDelay = 0.5;
-                float tScale = 50.0 / 30.0;
-                float scaledTime = iTime * tScale;
-                vec2 uv_center = (vUv * 2.0 - 1.0);
-                uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
-               
-                float sparkle = lakeSparkle(vUv, scaledTime);
-                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
-               
-                vec3 backgroundColor = palette(vUv.x * 0.1 + vUv.y * 0.1 + scaledTime * 0.2, vec3(0.0));
-                vec3 rippleLayerColorSum = vec3(0.0);
-                float total_mix_weight = 0.0;
-                float totalLoop = 50.0;
-               
-                float mod_vein_speed_a = BASE_VEIN_SPEED_A * (waveA / 6.0);
-                float mod_vein_speed_b = BASE_VEIN_SPEED_B * (waveB / 10.0);
-                float mod_ellip_speed_a = BASE_ELLIP_SPEED_A * (waveA / 6.0);
-                float mod_ellip_speed_b = BASE_ELLIP_SPEED_B * (waveB / 10.0);
-                float angle_radians = atan(5.0 / 9.0);
-                float ext_cos = cos(angle_radians);
-                float ext_sin = sin(angle_radians);
-                for(int i = 0; i < 4; i++) {
-                    float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5;
-                    float rippleTime = mod(scaledTime - timeOffset, totalLoop);
-                    if (rippleTime < 0.0) rippleTime += totalLoop;
-                   
-                    vec2 startCorner, center1, center2;
-                    float stageTime;
-                   
-                    if (rippleTime < 25.0) {
-                        startCorner = vec2(1.5, 0.7);
-                        center1 = vec2(1.5, -1.3);
-                        center2 = vec2(-1.5, 1.3);
-                        stageTime = rippleTime;
-                    } else {
-                        startCorner = vec2(-1.5, 0.7);
-                        center1 = vec2(-1.5, -1.3);
-                        center2 = vec2(1.5, 1.3);
-                        stageTime = rippleTime - 25.0;
-                    }
-                   
-                    // 🛠️ 鎖死 12.0秒漫遊速度，與 u_mode 完全解耦
-                    float activeMoveDuration = BASE_MOVE_DURATION;
-                    vec2 targetCorner = -startCorner;
-                    vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
-                   
-                    // 🛠️ 鎖死 14.0秒尺寸縮放常數，不跟隨 waveA 狂飆
-                    float leafScale = (1.0 - float(i) * 0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
-                    leafScale = max(abs(leafScale), 0.001) * sign(leafScale);
-                   
-                    vec2 toCorner = uv_center - currentCenter;
-                    float moveAngle = atan(targetCorner.y - startCorner.y, targetCorner.x - startCorner.x + 0.0001);
-                    vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
-                   
-                    leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
-                    float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * arcCurv) / leafScale;
-                   
-                    // 🛠️ 導入迭代催化：將心情波頻完全反映在內部疊代結構
-                    float iterationFactor = 1.0 + float(i) * 0.4;
-                    float hz_a_time = stageTime * mod_vein_speed_a * iterationFactor;
-                    float hz_b_time = stageTime * mod_vein_speed_b * iterationFactor;
-                   
-                    float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - hz_a_time)) + 0.45) * 0.3 +
-                                       0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.20) * 0.4);
-                    leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
-                   
-                    float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
-                    float ellipse_glow = 0.0;
-                    vec2 centers[2]; centers[0] = center1; centers[1] = center2;
-                    for(int j = 0; j < 2; j++) {
-                        vec2 toC = uv_center - centers[j];
-                        vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
-                        float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
-                       
-                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a * iterationFactor)) + ellipThick1), 2.0);
-                        float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b * iterationFactor)) + ellipThick2), 2.0);
-                        ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
-                    }
-                    float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
-                    float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(10.0, 14.0, stageTime));
-                    vec3 bias = vec3(float(i)*0.05);
-                   
-                    vec3 leafColor = palette(scaledTime * 0.08 + float(i) * 0.25, bias);
-                    vec3 ellipColor = palette(scaledTime * 0.08 + float(i) * 0.25 + colorDelay, bias);
-                    rippleLayerColorSum += (leafColor * leaf_glow + ellipColor * ellipse_glow) * time_env * global_env;
-                    total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
-                }
-                vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), 1.0 - exp(-total_mix_weight * 1.2));
-                finalColor = mix(vec3(0.5), finalColor, 1.02);
-                finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
-                gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
-            }
-        `;
-
-        // 3. 🌊 海浪著色器 (✨ 100% 採用你提供好的完美原版代碼，僅銜接外部 Uniform 與進行解耦)
-        const waveFragmentCode = paletteSharedGLSL + `
-            const float BASE_MOVE_DURATION = 12.0;
-            const float BASE_SPEED_TWIST   = 0.5;
-            const float BASE_SPEED_WAVE1   = 2.0;
-            const float BASE_SPEED_WAVE2   = 3.0;
-            void main() {
-                // 🛠️ 直接將你原版測試碼的常數，精準對齊綁定到 UI 的 Uniform 控制線上
-                float u_wave_a_local = (u_mode < 0.5) ? 10.0 : (u_mode < 1.5) ? 6.0 : 20.0;
-                float u_wave_b_local = (u_mode < 0.5) ? 15.0 : (u_mode < 1.5) ? 10.0 : 40.0;
-
-                vec2 uv_center = (vUv * 2.0 - 1.0);
-                uv_center.x *= iResolution.x / (iResolution.y + 0.0001);
-                
-                // ✨ 100% 繼承你給的原版時間壓縮
-                float timeScale = 50.0 / 30.0;
-                float scaledTime = iTime * timeScale;
-                
-                float sparkle = lakeSparkle(vUv, scaledTime * 0.6);
-                vec3 baseSilverBg = mix(vec3(0.85, 0.88, 0.91), vec3(1.0), sparkle);
-                
-                float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + (scaledTime * 0.6) * 0.2;
-                vec3 backgroundColor = palette(bg_t, vec3(0.0));
-                vec3 rippleLayerColorSum = vec3(0.0);
-                float total_mix_weight = 0.0;
-                float totalLoop = 50.0;
-                
-                float mod_speed_twist = BASE_SPEED_TWIST * (u_wave_a_local / 20.0);
-                float mod_speed_wave1 = BASE_SPEED_WAVE1 * (u_wave_a_local / 20.0);
-                float mod_speed_wave2 = BASE_SPEED_WAVE2 * (u_wave_b_local / 40.0);
-                
-                for(int i = 0; i < 2; i++) {
-                    float timeInterval = 8.0;
-                    float timeOffset = float(i) * timeInterval + (float(i) * (float(i) - 1.0)) * 0.5;
-                   
-                    float rippleTime = mod(scaledTime - timeOffset, totalLoop);
-                    if (rippleTime < 0.0) rippleTime += totalLoop;
-                   
-                    vec2 startCorner; float stageTime;
-                    if (rippleTime < 25.0) {
-                        startCorner = vec2(-1.5, -0.7); stageTime = rippleTime;
-                    } else {
-                        startCorner = vec2(1.5, -0.7); stageTime = rippleTime - 25.0;
-                    }
-                   
-                    float speedMultiplier = 0.8 + float(i) * 0.01;
-                    vec2 posOffset = vec2(float(i) * 0.05 * sign(startCorner.x), -float(i) * 0.03);
-                    vec2 shiftedStart = startCorner + posOffset;
-                   
-                    vec3 colorBias = vec3(float(i) * 0.12, float(i) * 0.06, float(i) * 0.15);
-                    vec2 targetCorner = -shiftedStart;
-                   
-                    // 🛠️ 核心解耦：位移速度卡死在 12 秒，不再因為頻率變大而暴走衝刺
-                    float activeMoveDuration = BASE_MOVE_DURATION;
-                    float moveProgress = smoothstep(0.0, activeMoveDuration, stageTime);
-                    vec2 currentCenter = mix(shiftedStart, targetCorner, moveProgress);
-                   
-                    float centerDist = length(currentCenter);
-                    float instanceSize = 1.0 - float(i) * 0.15;
-                    float waveScale = instanceSize * mix(1.0, 0.1, smoothstep(0.0, 1.8, centerDist));
-                   
-                    vec2 toCenter = uv_center - currentCenter;
-                    float waveDirection = -sign(startCorner.x);
-                   
-                    float r = length(toCenter);
-                    float angle = atan(toCenter.y, toCenter.x + 0.0001);
-                    float twist = 1.5 / (r + 0.1);
-                   
-                    float twistedAngle = angle + twist * waveDirection - stageTime * mod_speed_twist;
-                    float waveShape = sin(twistedAngle * 3.0);
-                    waveShape = pow(abs(waveShape), 0.5) * sign(waveShape);
-                   
-                    float base_d = (r / waveScale) / (0.4 + 0.4 * waveShape);
-                   
-                    // 🛠️ 將心情波頻精準接進內部雙波的 Iteration 疊代流速
-                    float iterationFactor = 1.0 + float(i) * 0.5;
-                    float wave1 = sin(base_d * 1.0 - stageTime * mod_speed_wave1 * iterationFactor);
-                    float wave2 = cos(base_d * 2.25 + twistedAngle * 2.0 - stageTime * mod_speed_wave2 * iterationFactor);
-                   
-                    float wave_line1 = 0.1 / (abs(wave1) + 0.1);
-                    float wave_line2 = 0.05 / (abs(wave2) + 0.05);
-                   
-                    float layer_glow = wave_line1 * 1.2 + wave_line2 * wave_line1 * 0.8;
-                   
-                    float fadeIn = smoothstep(0.0, 1.5, stageTime);
-                    float fadeOut = 1.0 - smoothstep(12.0, 17.0, stageTime);
-                    float spaceFade = exp(-base_d * 0.15);
-                   
-                    layer_glow *= fadeIn * fadeOut * spaceFade;
-                   
-                    vec3 thisCornerColor = palette(scaledTime * 0.05 + float(i) * 0.3, colorBias);
-                    rippleLayerColorSum += thisCornerColor * layer_glow;
-                    total_mix_weight += layer_glow;
-                }
-                float rippleMixControl = 1.0 - exp(-total_mix_weight * 1.5);
-                vec3 finalRippleColor = rippleLayerColorSum / (total_mix_weight + 0.001);
-                vec3 finalColor = mix(backgroundColor, finalRippleColor, rippleMixControl);
-                finalColor = mix(vec3(0.5), finalColor, 1.02);
-                finalColor = pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2));
-                gl_FragColor = vec4(mix(baseSilverBg, finalColor, u_silver_mode), 1.0);
-            }
-        `;
-
-        // ==========================================
-        // THREE.JS & LOGIC CONTROL SECTION
-        // ==========================================
-        const canvas = document.getElementById('webgl-canvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-       
+        // =================================================================
+        // 🌌 WebGL / Three.js 基礎場景設置
+        // =================================================================
+        const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-        const geometry = new THREE.PlaneGeometry(2, 2);
-        const shaderUniforms = {
-            iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-            iTime: { value: 0 },
-            u_mode: { value: 0.0 },               
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        // 🎛️ 初始 Uniforms 變數引腳
+        const uniforms = {
+            u_time: { value: 0 },
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
             u_wave_a: { value: 10.0 },
             u_wave_b: { value: 15.0 },
-            u_palette_bias: { value: new THREE.Vector3(0.0, 0.1, 0.2) },
-            u_silver_mode: { value: 0.0 }
+            u_space_multiplier_a: { value: 0.666 },
+            u_space_multiplier_b: { value: 5.0 },
+            u_palette_mode: { value: 1 }, // 1: chill, 2: fun, 3: active
+            u_pattern_mode: { value: 1 }, // 1: sakura, 2: leaf, 3: wave
+            u_color_speed: { value: 0.05 },
+            u_contrast: { value: 0.5 },
+            u_bg_min: { value: 0.08 },
+            u_bg_max: { value: 0.8 }
         };
-        let shaderMaterial = new THREE.ShaderMaterial({
-            vertexShader: vertexShaderCode,
-            fragmentShader: flowerFragmentCode,
-            uniforms: shaderUniforms,
-            depthWrite: false, depthTest: false
+
+        // =================================================================
+        // 🌿 大一統 Fragment Shader (100% 整合你的優化版本，拔除閃爍)
+        // =================================================================
+        const fragmentShader = `
+            uniform float u_time;
+            uniform vec2 u_resolution;
+            uniform float u_wave_a;
+            uniform float u_wave_b;
+            uniform float u_space_multiplier_a;
+            uniform float u_space_multiplier_b;
+            uniform int u_palette_mode;
+            uniform int u_pattern_mode;
+            uniform float u_color_speed;
+            uniform float u_contrast;
+            uniform float u_bg_min;
+            uniform float u_bg_max;
+
+            const float BASE_MOVE_DURATION = 12.0;
+
+            // 🎨 Color Palette 1: Just unwind and chill (你的經典原廠平衡底座)
+            vec3 palette_chill(float t, vec3 bias) {
+                vec3 a = vec3(0.5, 0.5, 0.5);
+                vec3 b = vec3(u_contrast);
+                vec3 c = vec3(1.0, 1.0, 1.0);
+                vec3 d = vec3(0.0, 0.1, 0.2) + bias;
+                return a + b * cos(6.283185 * (c * t + d));
+            }
+
+            // 🎨 Color Palette 2: Do something fun (🌟 你給的向日葵金黃配方)
+            vec3 palette_fun(float t, vec3 bias) {
+                vec3 a = vec3(0.4, 0.4, 0.4);
+                vec3 b = vec3(0.55, 0.55, 0.55);
+                vec3 c = vec3(1.0, 1.0, 0.5);
+                vec3 d = vec3(0.8, 0.9, 0.3) + bias;
+                return a + b * cos(6.283185 * (c * t + d));
+            }
+
+            // 🎨 Color Palette 3: Stay active or go out (大反差時間差配方)
+            vec3 palette_active(float t, vec3 bias) {
+                vec3 a = vec3(0.5, 0.5, 0.5);
+                vec3 b = vec3(u_contrast);
+                vec3 c = vec3(1.0, 1.0, 1.0);
+                vec3 d = vec3(0.0, 0.1, 0.2) + bias + vec3(2.50);
+                return a + b * cos(6.283185 * (c * t + d));
+            }
+
+            // 🛡️ 統一路由調色盤
+            vec3 getPaletteColor(float t, vec3 bias) {
+                if (u_palette_mode == 1) return palette_chill(t, bias);
+                if (u_palette_mode == 2) return palette_fun(t, bias);
+                return palette_active(t, bias);
+            }
+
+            void main() {
+                vec2 vUv = gl_FragCoord.xy / u_resolution.xy;
+                vec2 uv_center = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / u_resolution.y;
+
+                float timeScale = 50.0 / 30.0;
+                float scaledTime = u_time * timeScale;
+
+                vec3 baseSilverBg = vec3(0.85, 0.88, 0.91);
+                float bg_t = vUv.x * 0.1 + vUv.y * 0.1 + (scaledTime * 0.6) * 0.2;
+                vec3 backgroundColor = clamp(getPaletteColor(bg_t, vec3(0.0)), u_bg_min, u_bg_max);
+
+                vec3 rippleLayerColorSum = vec3(0.0);
+                float total_mix_weight = 0.0;
+                float totalLoop = 50.0;
+
+                // 🌸 PATTERN 1: SAKURA
+                if (u_pattern_mode == 1) {
+                    for(int i = 0; i < 4; i++) {
+                        float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5;
+                        float rippleTime = mod(scaledTime - timeOffset, totalLoop);
+                        if (rippleTime < 0.0) rippleTime += totalLoop;
+                        vec2 startCorner = (rippleTime < 25.0) ? vec2(1.5, 0.7) : vec2(-1.5, 0.7);
+                        float stageTime = (rippleTime < 25.0) ? rippleTime : rippleTime - 25.0;
+
+                        vec2 currentCenter = mix(startCorner + vec2(float(i)*0.03*sign(startCorner.x), float(i)*0.015), -(startCorner + vec2(float(i)*0.03*sign(startCorner.x), float(i)*0.015)), smoothstep(0.0, BASE_MOVE_DURATION, stageTime));
+                        float flowerScale = (1.0 - float(i)*0.2) * mix(1.0, 0.03, smoothstep(0.0, 1.5, length(currentCenter)));
+                        vec2 toCorner = uv_center - currentCenter;
+                        float r = length(toCorner), angle = atan(toCorner.y, toCorner.x + 0.0001);
+                        float sakuraShape = abs(sin(angle * 2.5)) * 0.7 + (1.0 - abs(cos(angle * 2.5))) * 0.25;
+                        float base_d = (r / flowerScale) / (0.3 + 0.5 * sakuraShape);
+
+                        float alpha_wave = sin(base_d * u_space_multiplier_a - stageTime * (1.5 * (u_wave_a / 6.0)));
+                        float beta_wave  = sin(base_d * u_space_multiplier_b - stageTime * (3.5 * (u_wave_b / 10.0)));
+                        float wave = (alpha_wave * 0.2) + (beta_wave * 0.02 * (alpha_wave + 1.0));
+                        float final_glow = 0.01 / (abs(wave) + 0.025);
+
+                        final_glow *= smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(12.0, 17.0, stageTime)) * exp(-base_d * 0.2);
+                        float color_t = (scaledTime * 0.05 * 5.0) * (u_color_speed / 0.05) + float(i) * 0.25 + 2.5;
+                        rippleLayerColorSum += getPaletteColor(color_t, vec3(float(i)*0.15, float(i)*0.08, float(i)*0.05)) * final_glow;
+                        total_mix_weight += final_glow;
+                    }
+                }
+                // 🌿 PATTERN 2: ZEN LEAF
+                else if (u_pattern_mode == 2) {
+                    float waveFreq = 1.2 * 0.6, waveAmp = 0.12, arcCurv = 0.65, veinThick = 0.012;
+                    float ellipScale = 0.08 * 0.6, ellipRatioX = 30.0, ellipRatioY = 40.0, ellipThick1 = 0.03, ellipThick2 = 0.015, sharpen = 3.5;
+                    float hz_slow = (scaledTime * 0.6) * (u_wave_a / 33.333), hz_fast = (scaledTime * 0.6) * (u_wave_b / 30.000);
+                    float angle_radians = atan(5.0 / 9.0), ext_cos = cos(angle_radians), ext_sin = sin(angle_radians);
+
+                    for(int i = 0; i < 4; i++) {
+                        float timeOffset = float(i) * 3.0 + (float(i) * (float(i) - 1.0)) * 0.5;
+                        float rippleTime = mod(scaledTime - timeOffset, totalLoop);
+                        if (rippleTime < 0.0) rippleTime += totalLoop;
+                        vec2 startCorner = (rippleTime < 25.0) ? vec2(1.5, 0.7) : vec2(-1.5, 0.7);
+                        vec2 center1 = (rippleTime < 25.0) ? vec2(1.5, -1.3) : vec2(-1.5, -1.3);
+                        vec2 center2 = (rippleTime < 25.0) ? vec2(-1.5, 1.3) : vec2(1.5, 1.3);
+                        float stageTime = (rippleTime < 25.0) ? rippleTime : rippleTime - 25.0;
+
+                        vec2 currentCenter = mix(startCorner, -startCorner, smoothstep(0.0, BASE_MOVE_DURATION, stageTime));
+                        float leafScale = (1.0 - float(i)*0.2) * sin(clamp(stageTime / 14.0, 0.0, 1.0) * 3.14159);
+                        leafScale = max(abs(leafScale), 0.001) * sign(leafScale);
+                        vec2 toCorner = uv_center - currentCenter;
+                        float moveAngle = atan(-startCorner.y * 2.0, -startCorner.x * 2.0);
+                        vec2 leaf_uv = vec2(toCorner.x * cos(moveAngle) + toCorner.y * sin(moveAngle), -toCorner.x * sin(moveAngle) + toCorner.y * cos(moveAngle));
+                        leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
+                        float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * arcCurv) / leafScale;
+
+                        float leaf_glow = (0.6 / (abs(sin((v_arc * 0.6) * u_space_multiplier_a - hz_slow)) + 0.4) * 0.3 + 0.25 / (abs(sin((v_arc * 1.5) * u_space_multiplier_a - hz_fast)) + 0.15) * 0.4);
+                        leaf_glow += (veinThick / (abs(leaf_uv.y / leafScale) + veinThick)) * smoothstep(1.0, 0.0, leaf_uv.x / leafScale);
+
+                        float current_sin = (rippleTime < 25.0) ? ext_sin : -ext_sin;
+                        float ellipse_glow = 0.0; vec2 centers[2]; centers[0] = center1; centers[1] = center2;
+                        for(int j = 0; j < 2; j++) {
+                            vec2 toC = uv_center - centers[j];
+                            vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
+                            float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
+                            float g1 = pow(ellipThick1 / (abs(sin((d * 0.8) * u_space_multiplier_b - hz_fast * 1.6)) + ellipThick1), 2.0);
+                            float g2 = pow(ellipThick2 / (abs(sin((d * 2.5) * u_space_multiplier_b - hz_fast * 4.0)) + ellipThick2), 2.0);
+                            ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
+                        }
+                        float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
+                        float time_env = smoothstep(0.0, 1.0, stageTime) * (1.0 - smoothstep(12.0, 17.0, stageTime));
+                        float color_t = (scaledTime * 0.05 * 5.0) * (u_color_speed / 0.05) + float(i) * 0.25 + 2.5;
+
+                        rippleLayerColorSum += (getPaletteColor(color_t, vec3(float(i)*0.05)) * leaf_glow + getPaletteColor(color_t + 0.5, vec3(float(i)*0.05)) * ellipse_glow) * time_env * global_env;
+                        total_mix_weight += (leaf_glow + ellipse_glow) * time_env * global_env;
+                    }
+                }
+                // 🌊 PATTERN 3: GREAT WAVE (🌟 3層迴圈、5.0倍流速黃金版)
+                else if (u_pattern_mode == 3) {
+                    float mod_speed_wave1 = 2.0 * (u_wave_a / 20.0), mod_speed_wave2 = 3.0 * (u_wave_b / 40.0);
+                    for(int i = 0; i < 3; i++) {
+                        float timeOffset = float(i) * 8.0 + (float(i) * (float(i) - 1.0)) * 0.5;
+                        float rippleTime = mod(scaledTime - timeOffset, totalLoop);
+                        if (rippleTime < 0.0) rippleTime += totalLoop;
+                        vec2 startCorner = (rippleTime < 25.0) ? vec2(-1.5, -0.7) : vec2(1.5, -0.7);
+                        float stageTime = (rippleTime < 25.0) ? rippleTime : rippleTime - 25.0;
+
+                        vec2 currentCenter = mix(startCorner + vec2(float(i)*0.05*sign(startCorner.x), -float(i)*0.03), -(startCorner + vec2(float(i)*0.05*sign(startCorner.x), -float(i)*0.03)), smoothstep(0.0, BASE_MOVE_DURATION, stageTime));
+                        float waveScale = (1.0 - float(i)*0.15) * mix(1.0, 0.1, smoothstep(0.0, 1.8, length(currentCenter)));
+                        vec2 toCenter = uv_center - currentCenter;
+                        float r = length(toCenter), angle = atan(toCenter.y, toCenter.x + 0.0001), twist = 1.5 / (r + 0.1);
+                        float twistedAngle = angle + twist * (-sign(startCorner.x)) - stageTime * 0.5 * (u_wave_a / 20.0);
+                        float waveShape = pow(abs(sin(twistedAngle * 1.0)), 0.5) * sign(sin(twistedAngle * 1.0));
+                        float base_d = (r / waveScale) / (0.4 + 0.4 * waveShape);
+
+                        float wave1 = sin(base_d * u_space_multiplier_a - stageTime * mod_speed_wave1);
+                        float wave2 = sin(base_d * u_space_multiplier_b - stageTime * mod_speed_wave2);
+                        float PAC_wave = (wave1 * 0.2) + (wave2 * 0.02 * (wave1 + 1.0));
+                        float layer_glow = 0.01 / (abs(PAC_wave) + 0.025);
+
+                        layer_glow *= smoothstep(0.0, 1.5, stageTime) * (1.0 - smoothstep(12.0, 17.0, stageTime)) * exp(-base_d * 0.15);
+                        float color_t = (scaledTime * 0.05 * 5.0) * (u_color_speed / 0.05) + float(i) * 0.3 + 2.5;
+                        rippleLayerColorSum += getPaletteColor(color_t, vec3(float(i)*0.12, float(i)*0.06, float(i)*0.15)) * layer_glow;
+                        total_mix_weight += layer_glow;
+                    }
+                }
+
+                float rippleMixControl = 1.0 - exp(-total_mix_weight * 1.5);
+                vec3 finalColor = mix(backgroundColor, rippleLayerColorSum / (total_mix_weight + 0.001), rippleMixControl);
+                finalColor = mix(vec3(0.5), finalColor, 1.02);
+                gl_FragColor = vec4(mix(baseSilverBg, pow(max(finalColor, vec3(0.0)), vec3(1.0 / 2.2)), 1.0), 1.0);
+            }
+        `;
+
+        // =================================================================
+        // 🚀 建立網格材質與渲染
+        // =================================================================
+        const geometry = new THREE.PlaneGeometry(2, 2);
+        const material = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            fragmentShader: fragmentShader,
+            depthWrite: false,
+            depthTest: false
         });
-       
-        const mesh = new THREE.Mesh(geometry, shaderMaterial);
+        const mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
-        window.addEventListener('resize', () => {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            shaderUniforms.iResolution.value.set(window.innerWidth, window.innerHeight);
-        });
-        let isShaderRunning = false;
+
+        // ⏱️ 動態渲染循環
         const clock = new THREE.Clock();
-        clock.stop();
         function animate() {
             requestAnimationFrame(animate);
-            if (isShaderRunning) {
-                shaderUniforms.iTime.value = clock.getElapsedTime();
-            } else {
-                shaderUniforms.iTime.value = 0;
-            }
+            uniforms.u_time.value = clock.getElapsedTime();
             renderer.render(scene, camera);
         }
         animate();
 
-        // --- UI 控制流程 DOM ---
-        const dialogBox = document.getElementById('dialog-box');
-        const dialogText = document.getElementById('dialog-text');
-        const optionsContainer = document.getElementById('options-container');
-        const silverOverlay = document.getElementById('silver-mirror-overlay');
-        const theaterMask = document.getElementById('theater-mask');
-        const recordingUI = document.getElementById('recording-ui');
-        const recordingText = document.getElementById('recording-text');
-        const delay = ms => new Promise(res => setTimeout(res, ms));
-        let selectedWaveA = 10.0;
-        let selectedWaveB = 15.0;
-        let selectedType = 'flower';
-
-        async function updateDialogText(text) {
-            dialogBox.classList.remove('show');
-            await delay(1500);
-            dialogText.innerText = text;
-            dialogBox.classList.add('show');
-        }
-        async function startFlow() {
-            await delay(500);
-            dialogBox.classList.add('show');
-            await delay(2000);
-            await updateDialogText("How's your day?");
-            await delay(2000);
-            await updateDialogText("Just take a breathe, and tell us ...");
-            await delay(2000);
-            showOption1();
-        }
-        async function showOption1() {
-            dialogBox.classList.remove('show');
-            await delay(1500);
-            dialogText.innerText = "How do you feel right now?";
-            optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="handleSelectOption1(0)">1. calm and relaxed</div>
-                <div class="btn-option" onclick="handleSelectOption1(1)">2. a bit tired or stressed</div>
-                <div class="btn-option" onclick="handleSelectOption1(2)">3. energized and motivated</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogBox.classList.add('show');
-        }
-
-        function handleSelectOption1(mode) {
-            dialogBox.classList.add('fade-fast');
-            shaderUniforms.u_mode.value = mode;           
-            selectedWaveA = (mode === 0) ? 10.0 : (mode === 1) ? 6.0 : 20.0;
-            selectedWaveB = (mode === 0) ? 15.0 : (mode === 1) ? 10.0 : 40.0;
-            setTimeout(async () => {
-                optionsContainer.style.display = "none";
-                dialogBox.classList.remove('fade-fast');
-                dialogText.innerText = "What are you planning to do next ?";
-                dialogBox.classList.add('show');
-                await delay(2000);
-                showOption2();
-            }, 300);
-        }
-
-        async function showOption2() {
-            dialogBox.classList.remove('show');
-            await delay(1500);
-            dialogText.innerText = "Choose a vibe for your next step:";
-            optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="selectOption2(0.0, 0.1, 0.2)">1. Just unwind and chill</div>
-                <div class="btn-option" onclick="selectOption2(0.3, 0.0, 0.4)">2. Do something fun</div>
-                <div class="btn-option" onclick="selectOption2(0.5, 0.5, 0.0)">3. Stay active or go out</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogBox.classList.add('show');
-        }
-        function selectOption2(r_bias, g_bias, b_bias) {
-            dialogBox.classList.add('fade-fast');
-            shaderUniforms.u_palette_bias.value.set(r_bias, g_bias, b_bias);
-            setTimeout(() => {
-                optionsContainer.style.display = "none";
-                dialogBox.classList.remove('fade-fast');
-                showOption3();
-            }, 300);
-        }
-        async function showOption3() {
-            dialogText.innerText = "Pick a symbol that guides you:";
-            optionsContainer.innerHTML = `
-                <div class="btn-option" onclick="selectOption3('flower')">🌸 Sakura Flower</div>
-                <div class="btn-option" onclick="selectOption3('leaf')">🌿 Zen Leaf</div>
-                <div class="btn-option" onclick="selectOption3('wave')">🌊 Great Wave</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogBox.classList.add('show');
-        }
-        function selectOption3(type) {
-            dialogBox.classList.add('fade-fast');
-            selectedType = type;
-            if(type === 'flower') { mesh.material.fragmentShader = flowerFragmentCode; }
-            else if(type === 'leaf') { mesh.material.fragmentShader = leafFragmentCode; }
-            else if(type === 'wave') { mesh.material.fragmentShader = waveFragmentCode; }
-           
-            shaderUniforms.u_wave_a.value = selectedWaveA;
-            shaderUniforms.u_wave_b.value = selectedWaveB;
-           
-            mesh.material.needsUpdate = true;
-            setTimeout(async () => {
-                optionsContainer.style.display = "none";
-                dialogBox.classList.remove('fade-fast');
-               
-                dialogText.innerText = "A moment before the gift ...";
-               
-                theaterMask.style.opacity = '1';
-                dialogBox.classList.add('dark-mode');
-                dialogBox.classList.add('show');
-               
-                await delay(3000);
-               
-                shaderUniforms.u_silver_mode.value = 1.0;
-                isShaderRunning = true;
-                clock.start();
-                startVideoRecording();
-                await updateDialogText("And here you are !");
-                await delay(2000);
-               
-                dialogBox.classList.remove('show');
-                theaterMask.style.opacity = '0';
-            }, 300);
-        }
-
-        // 錄影與下載邏輯
-        let mediaRecorder;
-        let recordedChunks = [];
-        let videoURL = null;
-        function startVideoRecording() {
-            recordedChunks = [];
-            const stream = canvas.captureStream(60);
-            const options = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 40000000 };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options.options = { mimeType: 'video/webm;codecs=vp8' };
+        // =================================================================
+        // 🎛️ 前端互動邏輯 (與 Miro 圖對齊)
+        // =================================================================
+        
+        // Option 1 改變腦波頻率
+        function setOption1(mode) {
+            updateActiveButton(0, mode);
+            if (mode === 'calm') {
+                gsap.to(uniforms.u_wave_a, { value: 10.0, duration: 1.5 });
+                gsap.to(uniforms.u_wave_b, { value: 15.0, duration: 1.5 });
+            } else if (mode === 'tired') {
+                gsap.to(uniforms.u_wave_a, { value: 6.0, duration: 1.5 });
+                gsap.to(uniforms.u_wave_b, { value: 10.0, duration: 1.5 });
+            } else if (mode === 'energized') {
+                gsap.to(uniforms.u_wave_a, { value: 20.0, duration: 1.5 });
+                gsap.to(uniforms.u_wave_b, { value: 40.0, duration: 1.5 });
             }
-            try {
-                mediaRecorder = new MediaRecorder(stream, options);
-            } catch(e) {
-                mediaRecorder = new MediaRecorder(stream);
+        }
+
+        // Option 2 獨立變更調色盤
+        function setOption2(paletteIndex) {
+            updateActiveButton(1, paletteIndex);
+            uniforms.u_palette_mode.value = paletteIndex;
+        }
+
+        // Option 3 獨立變更幾何圖騰 (並根據你滿意的疏密比初始化)
+        function setOption3(patternIndex) {
+            updateActiveButton(2, patternIndex);
+            uniforms.u_pattern_mode.value = patternIndex;
+            
+            // 🌸 櫻花密度初始化
+            if (patternIndex === 1) {
+                gsap.to(uniforms.u_space_multiplier_a, { value: 0.666, duration: 1.0 });
+                gsap.to(uniforms.u_space_multiplier_b, { value: 5.0, duration: 1.0 });
+            } 
+            // 🌿 樹葉 0.7 寬鬆留白版初始化
+            else if (patternIndex === 2) {
+                gsap.to(uniforms.u_space_multiplier_a, { value: 0.7, duration: 1.0 });
+                gsap.to(uniforms.u_space_multiplier_b, { value: 0.7, duration: 1.0 });
+            } 
+            // 🌊 海浪 1.7 倍密版幾何初始化
+            else if (patternIndex === 3) {
+                gsap.to(uniforms.u_space_multiplier_a, { value: 1.5, duration: 1.0 });
+                gsap.to(uniforms.u_space_multiplier_b, { value: 15.0, duration: 1.0 });
             }
-            mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                videoURL = URL.createObjectURL(blob);
-                showDownloadButton();
-            };
-            mediaRecorder.start();
-            recordingUI.style.display = 'flex';
-            recordingText.innerText = "Recording for 30 sec";
-            let secondsPassed = 0;
-            const recordTimer = setInterval(() => {
-                secondsPassed++;
-                if (secondsPassed === 10) recordingText.innerText = "20 sec left...";
-                else if (secondsPassed === 20) recordingText.innerText = "10 sec left...";
-                else if (secondsPassed >= 30) {
-                    clearInterval(recordTimer);
-                    mediaRecorder.stop();
-                    recordingUI.style.display = 'none';
-                }
-            }, 1000);
         }
-        function showDownloadButton() {
-            optionsContainer.innerHTML = `
-                <div class="btn-option btn-download" onclick="handleDownloadAction()">💾 Download your vibe</div>
-                <div class="btn-option btn-next-time" onclick="handleCloseAction()">maybe next time</div>
-            `;
-            optionsContainer.style.display = "flex";
-            dialogText.innerText = "Your personalized zen video is ready!";
-            dialogBox.classList.add('show');
+
+        // 樣式：輔助切換 Active UI 按鈕
+        function updateActiveButton(sectionIndex, modeOrId) {
+            const sections = document.querySelectorAll('.ui-section');
+            const buttons = sections[sectionIndex].querySelectorAll('button');
+            buttons.forEach((btn, idx) => {
+                const isMatch = (typeof modeOrId === 'string' && btn.getAttribute('onclick').includes(modeOrId)) ||
+                                (typeof modeOrId === 'number' && btn.getAttribute('onclick').includes(modeOrId.toString()));
+                if (isMatch) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
         }
-        function handleDownloadAction() {
-            if (videoURL) {
-                const a = document.createElement('a');
-                a.href = videoURL;
-                a.download = `zen-mood-gift-${selectedType}.webm`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-            closeFinalDialog();
-        }
-        function handleCloseAction() {
-            closeFinalDialog();
-        }
-        function closeFinalDialog() {
-            dialogBox.classList.remove('show');
-            setTimeout(() => { optionsContainer.style.display = "none"; }, 1500);
-        }
-        startFlow();
+
+        // 📐 自動滿版視窗縮放
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
