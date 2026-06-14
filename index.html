@@ -80,7 +80,7 @@
 
     <script>
         // ==========================================
-        // SHADER CODES SECTION (已修復頂點與時間軸傳遞)
+        // SHADER CODES SECTION (原廠經典基底 + 控制線解耦修正版)
         // ==========================================
         const vertexShaderCode = `
             varying vec2 vUv;
@@ -166,7 +166,8 @@
                     vec3 colorBias = vec3(float(i) * 0.15, float(i) * 0.08, float(i) * 0.05);
                     vec2 targetCorner = -shiftedStart;
                    
-                    float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / waveA);
+                    // 🛠️ 漫遊位移速度卡死 12 秒，與心情波頻完全解耦，拒絕噴過快
+                    float activeMoveDuration = BASE_MOVE_DURATION;
                     float moveProgress = smoothstep(0.0, activeMoveDuration, stageTime);
                     vec2 currentCenter = mix(shiftedStart, targetCorner, moveProgress);
                    
@@ -188,8 +189,10 @@
                     float mod_speed_a = BASE_SPEED_INNER * (waveA / 6.0);
                     float mod_speed_b = BASE_SPEED_OUTER * (waveB / 10.0);
                    
-                    float theta = sin(base_d * 0.5 - stageTime * mod_speed_a);
-                    float alpha = sin(base_d * 1.5 - stageTime * mod_speed_b);
+                    // 🛠️ 將 Energetic 能量精準導向內部疊代（Iteration）的波動交織上
+                    float iterationFactor = 1.0 + float(i) * 0.5;
+                    float theta = sin(base_d * 0.5 - stageTime * mod_speed_a * iterationFactor);
+                    float alpha = sin(base_d * 1.5 - stageTime * mod_speed_b * iterationFactor);
                    
                     float theta_glow = 0.2 / (abs(theta) + 0.2);
                     float alpha_glow = 0.06 / (abs(alpha) + 0.06);
@@ -270,7 +273,8 @@
                         stageTime = rippleTime - 25.0;
                     }
                    
-                    float activeMoveDuration = BASE_MOVE_DURATION * (6.0 / waveA);
+                    // 🛠️ 樹葉位移、縮放速度同步解耦，卡死在 12 秒流暢慢速
+                    float activeMoveDuration = BASE_MOVE_DURATION;
                     vec2 targetCorner = -startCorner;
                     vec2 currentCenter = mix(startCorner, targetCorner, smoothstep(0.0, activeMoveDuration, stageTime));
                    
@@ -284,8 +288,10 @@
                     leaf_uv.y += sin(leaf_uv.x * waveFreq) * waveAmp * leafScale;
                     float v_arc = (leaf_uv.x - sqrt(abs(leaf_uv.y)) * arcCurv) / leafScale;
                    
-                    float hz_a_time = stageTime * mod_vein_speed_a;
-                    float hz_b_time = stageTime * mod_vein_speed_b;
+                    // 🛠️ 將 Energetic 能量精準接回內部的葉脈與外圍橢圓弦波疊代
+                    float iterationFactor = 1.0 + float(i) * 0.4;
+                    float hz_a_time = stageTime * mod_vein_speed_a * iterationFactor;
+                    float hz_b_time = stageTime * mod_vein_speed_b * iterationFactor;
                    
                     float leaf_glow = (0.6 / (abs(sin(v_arc * 1.0 - hz_a_time)) + 0.45) * 0.3 +
                                        0.25 / (abs(sin(v_arc * 2.5 - hz_b_time)) + 0.20) * 0.4);
@@ -299,8 +305,8 @@
                         vec2 rot = vec2(toC.x * ext_cos + toC.y * current_sin, -toC.x * current_sin + toC.y * ext_cos);
                         float d = sqrt(rot.x * rot.x * ellipRatioX + rot.y * rot.y * ellipRatioY) * ellipScale;
                        
-                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a)) + ellipThick1), 2.0);
-                        float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b)) + ellipThick2), 2.0);
+                        float g1 = pow(ellipThick1 / (abs(sin(d * 0.8 - stageTime * mod_ellip_speed_a * iterationFactor)) + ellipThick1), 2.0);
+                        float g2 = pow(ellipThick2 / (abs(sin(d * 2.5 - stageTime * mod_ellip_speed_b * iterationFactor)) + ellipThick2), 2.0);
                         ellipse_glow += (g1 + g2) * exp(-d * 0.5) * 0.35 * sharpen;
                     }
                     float global_env = smoothstep(1.8, 0.0, abs(uv_center.x * ext_sin - uv_center.y * ext_cos) * 0.4);
@@ -319,7 +325,7 @@
             }
         `;
 
-        // 3. 🌊 海浪著色器 (已修復變數名稱錯誤)
+        // 3. 🌊 海浪著色器 (100% 原汁原味還原好的原始幾何架構)
         const waveFragmentCode = paletteSharedGLSL + `
             const float BASE_MOVE_DURATION = 12.0;
             const float BASE_SPEED_TWIST = 0.5;
@@ -406,7 +412,6 @@
                    
                     layer_glow *= fadeIn * fadeOut * spaceFade;
                    
-                    // ✨ 已修正：將原本出錯的 colorBias_v 改回對應的 colorBias 變數
                     vec3 thisCornerColor = palette((scaledTime * 0.6) * 0.05 + float(i) * 0.3, colorBias);
                     rippleLayerColorSum += thisCornerColor * layer_glow;
                     total_mix_weight += layer_glow;
@@ -433,7 +438,7 @@
         const shaderUniforms = {
             iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
             iTime: { value: 0 },
-            u_mode: { value: 0.0 },
+            u_mode: { value: 0.0 },               
             u_wave_a: { value: 10.0 },
             u_wave_b: { value: 15.0 },
             u_palette_bias: { value: new THREE.Vector3(0.0, 0.1, 0.2) },
@@ -510,7 +515,7 @@
 
         function handleSelectOption1(mode) {
             dialogBox.classList.add('fade-fast');
-            shaderUniforms.u_mode.value = mode;
+            shaderUniforms.u_mode.value = mode;           
             selectedWaveA = (mode === 0) ? 10.0 : (mode === 1) ? 6.0 : 20.0;
             selectedWaveB = (mode === 0) ? 15.0 : (mode === 1) ? 10.0 : 40.0;
             setTimeout(async () => {
@@ -589,6 +594,7 @@
             }, 300);
         }
 
+        // 錄影與下載邏輯
         let mediaRecorder;
         let recordedChunks = [];
         let videoURL = null;
