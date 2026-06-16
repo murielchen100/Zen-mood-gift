@@ -6,8 +6,6 @@ The starting point for this project was a strong interest in the concept of recu
 While researching ways to generate repeating fractal patterns through code, I discovered ShaderToy, which heavily uses sine and cosine mathematical waveforms to control light and shadow. I noticed a clear similarity between these curves and human brainwaves. This led me to review scientific papers to understand the four main types of brainwaves—$\alpha$, $\beta$, $\gamma$, and $\theta$—and extract three specific waveform combinations designed to help with relaxation, focus, and emotional healing.
 
 ## Technical Implementation
-Although GLSL syntax was entirely new to me, programming logic from Python and C++ (such as `for` loops) helped me understand the underlying code. However, because I do not know HTML and CSS, I relied heavily on AI assistance to build and structure the interactive web application interface. 
-
 By integrating the brainwave parameters, I completed the web app *Zen Mood Gift*. Based on the user's answers to a series of mood-related questions, the system shifts the waveform parameters to generate a personalized, real-time therapeutic video.
 
 ## Current Limitations & Future Work
