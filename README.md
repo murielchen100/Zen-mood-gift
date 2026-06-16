@@ -1,12 +1,14 @@
-# Zen Mood Gift
+# 🎋 Zen Mood Gift
 
 ## Project Overview
-The starting point for this project was a strong interest in the concept of recursion. I simply could not resist exploring this concept; it was far too fascinating to pass up. 
+The core driving force behind this project was a profound fascination with the concept of recursion—a mathematical elegance too captivating to overlook. 
 
-While researching ways to generate repeating fractal patterns through code, I discovered ShaderToy, which heavily uses sine and cosine mathematical waveforms to control light and shadow. I noticed a clear similarity between these curves and human brainwaves. This led me to review scientific papers to understand the four main types of brainwaves—$\alpha$, $\beta$, $\gamma$, and $\theta$—and extract three specific waveform combinations designed to help with relaxation, focus, and emotional healing.
+While researching methods to generate procedural fractal patterns through code, I discovered ShaderToy and noticed how heavily it relies on sine and cosine mathematical waveforms to control light, shadow, and space. I observed a striking parallel between these trigonometric curves and human brainwaves. This realization led me to dive into scientific literature to understand the nuances of the four primary brainwaves—$\alpha$, $\beta$, $\gamma$, and $\theta$. From this research, I extracted three specific waveform combinations mathematically tailored to induce relaxation, enhance focus, and support emotional healing.
 
 ## Technical Implementation
-By integrating the brainwave parameters, I completed the web app *Zen Mood Gift*. Based on the user's answers to a series of mood-related questions, the system shifts the waveform parameters to generate a personalized, real-time therapeutic video.
+By integrating these algorithmic brainwave parameters, I developed the web application *Zen Mood Gift*. Based on the user's responses to a series of mood-reflective questions, the system dynamically shifts the underlying waveform variables to generate a personalized, real-time therapeutic visual experience.
+
+Specifically, the application translates three distinct mood-regulating wave groups—derived directly from EEG brainwave research—into precise mathematical formulas within a GLSL fragment shader. Operating entirely on the GPU, the shader uses these parameters to render fluid, real-time visual rhythms designed to theoretically resonate with and elevate the user's cognitive state.
 
 ## Current Limitations & Future Work
-Due to spending most of the development time adjusting parameters up until the last minute, I ran out of time to implement generative audio via code or record a video explaining the parameter notes. Although this project is currently incomplete, the plan is to continue refining the details and add the audio functionality in the future.
+As a significant portion of the development cycle was dedicated to fine-tuning the mathematical parameters up until the final deadline, certain features remain on the roadmap. Specifically, I aim to implement code-driven generative audio and record a comprehensive video walkthrough explaining the parameter configurations. While the project is currently a work in progress, the long-term plan is to refine the interactive details and fully integrate the generative soundscapes.
