@@ -1,4 +1,4 @@
-# 🎋 Zen Mood Gift
+# Zen Mood Gift
 
 ## Project Overview
 The core driving force behind this project was a profound fascination with the concept of recursion—a mathematical elegance too captivating to overlook. 
